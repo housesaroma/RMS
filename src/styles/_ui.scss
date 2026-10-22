@@ -396,3 +396,97 @@ textarea.input {
   padding: 0 14px;
   font-size: var(--fs-sm);
 }
+
+// Acceptance / approval level palette for any element with data-level.
+[data-level] {
+  --lv: var(--chip-bg);
+  --lv-txt: var(--text);
+  --lv-fg: var(--text);
+  --lv-h: var(--muted);
+}
+@each $code,
+  $v in ('OWNER': 'owner', 'DIRECTOR': 'director', 'CEO': 'ceo', 'TREATMENT_REQUIRED': 'treatment')
+{
+  [data-level='#{$code}'] {
+    --lv: var(--lv-#{$v});
+    --lv-txt: var(--lv-#{$v}-text);
+    --lv-fg: var(--lv-#{$v}-on);
+    --lv-h: var(--lv-#{$v}-hue);
+  }
+}
+
+.level-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--lv-h) 18%, transparent);
+  color: var(--lv-txt);
+}
+
+.level-text {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--lv-txt);
+}
+
+// Disabled control with an explanation on hover/focus.
+.tip {
+  position: relative;
+  display: inline-flex;
+
+  [aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+  }
+
+  &__body {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: calc(100% + 8px);
+    z-index: 20;
+    width: max-content;
+    max-width: 300px;
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    background: var(--menu-bg);
+    color: var(--menu-fg);
+    border: 1px solid var(--menu-border);
+    box-shadow: var(--menu-shadow);
+    font-size: var(--fs-sm);
+    font-weight: 400;
+    line-height: 1.4;
+    text-align: left;
+  }
+
+  &__body--left {
+    right: auto;
+    left: 0;
+  }
+
+  &__sub {
+    display: block;
+    margin-top: 4px;
+    font-size: var(--fs-xs);
+    opacity: 0.75;
+  }
+
+  &:hover &__body,
+  &:focus-within &__body {
+    display: block;
+  }
+}
+
+.avatar--xs {
+  width: 32px;
+  height: 32px;
+  font-size: var(--fs-xs);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+}

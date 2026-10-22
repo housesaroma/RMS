@@ -1,13 +1,14 @@
 import { Component, computed, inject, input } from '@angular/core';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/auth';
+import { initials } from '../core/format';
 import { ROLE_NAMES } from '../core/models';
 import { Icon } from './icon';
 
 /** Page hero: breadcrumbs, global search, user chip, page title. Page actions go in the content slot. */
 @Component({
   selector: 'ui-page-header',
-  imports: [Icon],
+  imports: [Icon, RouterLink],
   templateUrl: './page-header.html',
   styleUrl: './page-header.scss',
 })
@@ -16,8 +17,11 @@ export class PageHeader {
   private readonly router = inject(Router);
 
   readonly title = input.required<string>();
-  readonly crumbs = input<string[]>([]);
+  /** Plain labels or `{ label, link }` for clickable crumbs. */
+  readonly crumbs = input<(string | { label: string; link: string })[]>([]);
   readonly subtitle = input('');
+  /** Smaller title for long names, e.g. a risk card. */
+  readonly compact = input(false);
 
   protected readonly user = this.auth.user;
   protected readonly initials = computed(() => initials(this.user()?.fullName ?? ''));
@@ -38,10 +42,4 @@ export class PageHeader {
   protected logout(): void {
     this.auth.logout();
   }
-}
-
-/** "Белов Александр Николаевич" → "АБ" (first name, then last name, as in the prototype). */
-export function initials(fullName: string): string {
-  const [last = '', first = ''] = fullName.split(' ');
-  return (first[0] ?? '') + (last[0] ?? '');
 }

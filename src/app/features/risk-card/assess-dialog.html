@@ -1,0 +1,126 @@
+<div class="dialog body">
+  <div class="head">
+    <div class="grow">
+      <h2 id="as-title">{{ first ? 'Первичная оценка' : 'Переоценка' }} риска</h2>
+      <p class="muted lead">
+        {{ risk.id }} «{{ risk.name }}». Метод «Матрица рисков», R = L × I. После сохранения риск
+        станет «Активен»{{ first ? ', а паспорт закроется для правок' : ' и начнётся новый цикл' }}.
+      </p>
+    </div>
+    <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
+      <ui-icon name="close" [size]="16" />
+    </button>
+  </div>
+
+  @if (risk.previous; as p) {
+    <div class="note">
+      <ui-icon name="info" [size]="18" />
+      <span>
+        Предыдущая оценка от {{ date(p.at) }}: сумма {{ rub(p.lossAmount) }}, L =
+        {{ p.likelihood }}, I = {{ p.impact }}, R = {{ p.score }}. Вероятность и последствия
+        вводятся заново.
+      </span>
+    </div>
+  }
+
+  <form [formRoot]="f" class="form">
+    <fieldset class="field fieldset">
+      <legend class="muted">Вероятность *</legend>
+      <div class="scale" role="radiogroup" aria-label="Вероятность">
+        @for (name of likelihoodNames; track $index) {
+          <button
+            type="button"
+            role="radio"
+            class="scale__item"
+            [attr.aria-checked]="model().likelihood === $index"
+            (click)="pick($index)"
+          >
+            <span class="scale__n">{{ $index }}</span>
+            <span class="scale__name">{{ name }}</span>
+          </button>
+        }
+      </div>
+      @if (f.likelihood().touched() && f.likelihood().errors()[0]; as e) {
+        <span class="field__error">{{ e.message }}</span>
+      }
+    </fieldset>
+
+    @if (cost) {
+      <div class="field">
+        <span class="muted">Простой объекта «{{ risk.asset }}» · {{ rub(cost) }} за час</span>
+        <div class="grid3">
+          <label class="field">
+            <span class="muted small">Недели</span>
+            <input class="input" type="number" step="1" [formField]="f.weeks" />
+          </label>
+          <label class="field">
+            <span class="muted small">Дни</span>
+            <input class="input" type="number" step="1" [formField]="f.days" />
+          </label>
+          <label class="field">
+            <span class="muted small">Часы</span>
+            <input class="input" type="number" step="0.5" [formField]="f.hours" />
+          </label>
+        </div>
+        @for (fld of [f.weeks, f.days, f.hours]; track $index) {
+          @if (fld().errors()[0]; as e) {
+            <span class="field__error">{{ e.message }}</span>
+          }
+        }
+      </div>
+    } @else {
+      <label class="field">
+        <span class="muted">Сумма последствий, ₽ *</span>
+        <input class="input" type="number" step="0.01" [formField]="f.lossAmount" />
+        <span class="field__hint">Объект не указан, поэтому сумму вводите вручную.</span>
+        @if (f.lossAmount().errors()[0]; as e) {
+          <span class="field__error">{{ e.message }}</span>
+        }
+      </label>
+    }
+
+    <div
+      class="preview"
+      [attr.data-level]="model().likelihood >= 0 ? preview().level : null"
+      aria-live="polite"
+    >
+      @if (cost) {
+        <div>
+          <span class="label">Всего часов</span
+          ><span>{{ preview().hours }} ч · {{ duration(preview().hours ?? 0) }}</span>
+        </div>
+      }
+      <div>
+        <span class="label">Сумма последствий</span
+        ><span class="strong">{{ rub(preview().loss) }}</span>
+      </div>
+      <div>
+        <span class="label">Тяжесть</span
+        ><span>{{ preview().impact }} · {{ impactNames[preview().impact] }}</span>
+      </div>
+      <div>
+        <span class="label">Оценка и уровень</span>
+        @if (model().likelihood >= 0) {
+          <span
+            ><span class="score">{{ preview().score }}</span>
+            <span class="level-text">{{ preview().level }} · {{ preview().range }}</span></span
+          >
+        } @else {
+          <span class="muted">выберите вероятность</span>
+        }
+      </div>
+    </div>
+    <p class="muted xs">Тяжесть считается по сумме автоматически, вручную её не выбирают.</p>
+
+    @if (error()) {
+      <div class="field__error strong" role="alert">{{ error() }}</div>
+    }
+
+    <div class="buttons">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Отмена</button>
+      <button type="submit" class="btn btn--sm" [disabled]="f().submitting()">
+        {{ f().submitting() ? 'Сохраняем…' : 'Сохранить оценку' }}
+      </button>
+    </div>
+  </form>
+</div>

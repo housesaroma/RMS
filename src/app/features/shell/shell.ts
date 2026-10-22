@@ -3,7 +3,7 @@ import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth';
 import { ThemeService } from '../../core/theme';
 import { Icon, IconName } from '../../ui/icon';
-import { initials } from '../../ui/page-header';
+import { initials } from '../../core/format';
 
 interface NavItem {
   path: string;

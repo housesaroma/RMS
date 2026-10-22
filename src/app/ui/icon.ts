@@ -25,7 +25,9 @@ export type IconName =
   | 'sort-asc'
   | 'sort-desc'
   | 'more'
-  | 'fire';
+  | 'fire'
+  | 'lock'
+  | 'gauge';
 
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */
 @Component({

@@ -7,28 +7,52 @@ import {
 } from '@angular/common/http';
 import { Observable, delay, of, throwError } from 'rxjs';
 import { API } from '../api';
-import { LoginResponse, NewRisk, Risk } from '../models';
-import { DEMO_PASSWORD, DICTIONARIES, RISKS, USERS } from './db';
-import { createRisk, filterRisks, pageRisks, parseQuery, toCsv, validateNewRisk } from './risks';
+import {
+  AssessmentInput,
+  LoginResponse,
+  NewMeasure,
+  NewRisk,
+  ResponseMode,
+  RiskDetails,
+} from '../models';
+import { DEMO_PASSWORD, DICTIONARIES, USERS } from './db';
+import {
+  addComment,
+  addMeasure,
+  assess,
+  chooseMode,
+  createRisk,
+  filterRisks,
+  pageRisks,
+  parseQuery,
+  riskCard,
+  toCsv,
+  toRisk,
+  validateNewRisk,
+} from './risks';
+import { seedRisks } from './seed';
 
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
 
-// Risks created in the demo survive a page reload.
-const STORE = 'rms.mock.risks';
-const risks: Risk[] = (() => {
+// Everything changed in the demo survives a page reload; bump the key when the seed changes shape.
+const STORE = 'rms.mock.v2';
+const risks: RiskDetails[] = (() => {
   try {
-    return [...(JSON.parse(localStorage.getItem(STORE) ?? '[]') as Risk[]), ...RISKS];
+    localStorage.removeItem('rms.mock.risks');
+    return (
+      (JSON.parse(localStorage.getItem(STORE) ?? 'null') as RiskDetails[] | null) ?? seedRisks()
+    );
   } catch {
-    return [...RISKS];
+    return seedRisks();
   }
 })();
-const saveCreated = () => {
+const save = () => {
   try {
-    localStorage.setItem(STORE, JSON.stringify(risks.slice(0, risks.length - RISKS.length)));
+    localStorage.setItem(STORE, JSON.stringify(risks));
   } catch {}
 };
 
-const fail = (status: number, message: string) => {
+const fail = (status: number, message: string): never => {
   throw new HttpErrorResponse({ status, statusText: message, error: { message } });
 };
 
@@ -36,6 +60,23 @@ const userFromToken = (req: HttpRequest<unknown>) => {
   const id = req.headers.get('Authorization')?.replace('Bearer mock.', '');
   return USERS.find((u) => u.id === id && !u.blocked) ?? fail(401, 'Сессия истекла');
 };
+
+const find = (id: string) => risks.find((r) => r.id === id) ?? fail(404, 'Риск не найден');
+
+/** Runs a card mutation; a returned message becomes a 422, success returns the fresh card. */
+const mutate = (
+  req: HttpRequest<unknown>,
+  id: string,
+  change: (r: RiskDetails) => string | null,
+) => {
+  userFromToken(req);
+  const error = change(find(id));
+  if (error) return fail(422, error);
+  save();
+  return riskCard(risks, id);
+};
+
+const now = () => new Date().toISOString();
 
 const routes: [string, RegExp, Handler][] = [
   [
@@ -56,7 +97,11 @@ const routes: [string, RegExp, Handler][] = [
   [
     'GET',
     /^risks$/,
-    (req) => (userFromToken(req), pageRisks(risks, parseQuery(req.params), DICTIONARIES)),
+    (req) => {
+      userFromToken(req);
+      const page = pageRisks(risks, parseQuery(req.params), DICTIONARIES);
+      return { ...page, items: page.items.map((r) => toRisk(r as RiskDetails)) };
+    },
   ],
   [
     'GET',
@@ -74,14 +119,58 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^risks$/,
     (req) => {
+      const user = userFromToken(req);
       const body = req.body as NewRisk;
-      const error = validateNewRisk(body, userFromToken(req), DICTIONARIES);
+      const error = validateNewRisk(body, user, DICTIONARIES);
       if (error) return fail(422, error);
-      const risk = createRisk(risks, body, DICTIONARIES, new Date().toISOString().slice(0, 10));
+      const risk = createRisk(risks, body, user, DICTIONARIES, now());
       risks.unshift(risk);
-      saveCreated();
-      return risk;
+      save();
+      return toRisk(risk);
     },
+  ],
+  [
+    'GET',
+    /^risks\/(R-\d+)$/,
+    (req, [id]) => (userFromToken(req), riskCard(risks, id) ?? fail(404, 'Риск не найден')),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/assessments$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        assess(r, req.body as AssessmentInput, userFromToken(req), DICTIONARIES, now()),
+      ),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/mode$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        chooseMode(
+          r,
+          (req.body as { mode: ResponseMode }).mode,
+          userFromToken(req),
+          DICTIONARIES,
+          now(),
+        ),
+      ),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/comments$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        addComment(r, (req.body as { text: string }).text, userFromToken(req), now()),
+      ),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/measures$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        addMeasure(risks, r, req.body as NewMeasure, userFromToken(req), now()),
+      ),
   ],
 ];
 

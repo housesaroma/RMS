@@ -1,0 +1,632 @@
+@if (risk(); as r) {
+  <ui-page-header
+    [title]="r.name"
+    [compact]="true"
+    [crumbs]="[{ label: 'Реестр рисков', link: '/risks' }, r.id]"
+  >
+    <div slot="meta" class="meta">
+      <ui-risk-status [status]="r.status" />
+      <span class="tag">{{ r.id }}</span>
+      @if (r.iso !== '—') {
+        <span class="tag">ISO 9001 · {{ r.iso }}</span>
+      }
+      @if (r.top) {
+        <span class="tag tag--top"><ui-icon name="fire" [size]="13" />Топ-риск</span>
+      }
+      <span class="tag"
+        ><ui-icon name="calendar" [size]="13" />Создан {{ date(r.createdAtTime, true) }}</span
+      >
+    </div>
+
+    <div slot="aside" class="hero-actions">
+      @if (r.status === 'DRAFT' || r.status === 'REASSESSMENT') {
+        <span class="tip">
+          <button
+            type="button"
+            class="btn btn--sm"
+            [attr.aria-disabled]="!assessGate().ok || busy()"
+            aria-describedby="assess-tip"
+            (click)="assessGate().ok && !busy() && openAssess()"
+          >
+            <ui-icon name="gauge" [size]="18" />{{
+              r.status === 'DRAFT' ? 'Оценить риск' : 'Переоценить'
+            }}
+          </button>
+          @if (assessGate().why) {
+            <span id="assess-tip" role="tooltip" class="tip__body">{{ assessGate().why }}</span>
+          }
+        </span>
+      }
+      @if (r.status === 'ACTIVE') {
+        <span class="tip">
+          <button
+            type="button"
+            class="btn btn--soft btn--sm"
+            [attr.aria-disabled]="!acceptGate().ok || busy()"
+            aria-describedby="accept-tip"
+            (click)="acceptGate().ok && !busy() && accept()"
+          >
+            <ui-icon name="lock" [size]="16" />Принять
+          </button>
+          @if (acceptGate().why) {
+            <span id="accept-tip" role="tooltip" class="tip__body">
+              {{ acceptGate().why }}
+              <span class="tip__sub"
+                >R = {{ r.assessment?.score }} · уровень {{ levelText() }}</span
+              >
+            </span>
+          }
+        </span>
+        @if (r.responseMode === 'treat' || r.responseMode === 'split') {
+          <span class="tip">
+            <button
+              type="button"
+              class="btn btn--sm"
+              [attr.aria-disabled]="!measureGate().ok || busy()"
+              aria-describedby="measure-tip"
+              (click)="measureGate().ok && !busy() && openMeasure()"
+            >
+              <ui-icon name="plus" [size]="18" />Добавить меру
+            </button>
+            @if (measureGate().why) {
+              <span id="measure-tip" role="tooltip" class="tip__body">{{ measureGate().why }}</span>
+            }
+          </span>
+        } @else {
+          <span class="tip">
+            <button
+              type="button"
+              class="btn btn--sm"
+              [attr.aria-disabled]="!treatGate().ok || busy()"
+              aria-describedby="treat-tip"
+              (click)="treatGate().ok && !busy() && treat()"
+            >
+              <ui-icon name="shield" [size]="18" />Обработать риск
+            </button>
+            @if (treatGate().why) {
+              <span id="treat-tip" role="tooltip" class="tip__body">{{ treatGate().why }}</span>
+            }
+          </span>
+        }
+      }
+    </div>
+  </ui-page-header>
+
+  @if (notice(); as n) {
+    <div
+      class="note"
+      [class.note--error]="n.error"
+      [class.note--hint]="!n.error"
+      [attr.role]="n.error ? 'alert' : 'status'"
+    >
+      <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+      <span class="grow">{{ n.text }}</span>
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set(null)"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+
+  <div class="grid">
+    <div class="col">
+      <section class="card block" aria-labelledby="h-info">
+        <div class="block__head">
+          <h2 id="h-info">Сведения</h2>
+          <span class="muted small">
+            {{
+              r.status === 'DRAFT'
+                ? 'черновик: паспорт заполнил автор, оценки ещё нет'
+                : 'паспорт только для чтения после первичной оценки'
+            }}
+          </span>
+        </div>
+        <div>
+          <div class="label">Описание</div>
+          <p class="description">{{ r.description || 'Без описания' }}</p>
+        </div>
+        <dl class="facts">
+          <div>
+            <dt>Опасность</dt>
+            <dd>{{ r.hazard }}</dd>
+          </div>
+          <div>
+            <dt>Категория</dt>
+            <dd>{{ r.category }}</dd>
+          </div>
+          <div>
+            <dt>Объект</dt>
+            <dd>
+              {{ r.asset ?? 'Не указан' }}
+              @if (r.asset && shown()?.hourlyCost) {
+                <span class="sub">{{ rub(shown()!.hourlyCost!) }} за час простоя</span>
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Дирекция / процесс</dt>
+            <dd>{{ r.directorate }} / {{ r.process }}<span class="sub">основной процесс</span></dd>
+          </div>
+          <div>
+            <dt>Владелец процесса</dt>
+            <dd>{{ r.owner }}<span class="sub">оценивает риск и выбирает режим</span></dd>
+          </div>
+          @for (p of r.secondary; track p.name) {
+            <div>
+              <dt>Второй процесс</dt>
+              <dd>
+                {{ p.directorate }} / {{ p.name }}<span class="sub">владелец {{ p.owner }}</span>
+              </dd>
+            </div>
+          }
+          <div>
+            <dt>Режим реагирования</dt>
+            <dd>
+              @if (r.responseMode) {
+                <span class="mode" [attr.data-level]="level()">{{
+                  modeNames[r.responseMode]
+                }}</span>
+                <span class="sub">выбран {{ date(r.modeAt) }}</span>
+              } @else {
+                <span class="muted">не выбран</span>
+              }
+            </dd>
+          </div>
+          <div>
+            <dt>Автор</dt>
+            <dd>
+              {{ r.author
+              }}<span class="sub">{{ r.authorPosition }} · {{ date(r.createdAtTime) }}</span>
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card block" aria-labelledby="h-assess">
+        <div class="block__head">
+          <h2 id="h-assess">Оценка риска</h2>
+          <span class="tag tag--plain">Встроенный метод · R = L × I</span>
+          @if (r.assessment) {
+            <span class="muted small">текущая версия</span>
+          } @else if (r.previous) {
+            <span class="muted small">предыдущая оценка, ждёт переоценки</span>
+          }
+        </div>
+
+        @if (shown(); as a) {
+          <div class="assess">
+            <div class="assess__main">
+              <div class="calc" [class.calc--single]="!a.hourlyCost">
+                @if (a.hourlyCost) {
+                  <div class="tile">
+                    <span class="tile__label">Стоимость часа</span>
+                    <span class="tile__value">{{ rub(a.hourlyCost) }}</span>
+                    <span class="tile__sub">в час · {{ r.asset }}, снимок {{ date(a.at) }}</span>
+                  </div>
+                  <span class="op" aria-hidden="true">×</span>
+                  <div class="tile">
+                    <span class="tile__label">Простой</span>
+                    <span class="tile__value">{{ a.downtimeHours }} ч</span>
+                    <span class="tile__sub">{{ duration(a.downtimeHours!) }}</span>
+                  </div>
+                  <span class="op" aria-hidden="true">=</span>
+                }
+                <div class="tile tile--sum" [attr.data-level]="level()">
+                  <span class="tile__label">Сумма последствий</span>
+                  <span class="tile__value">{{ rub(a.lossAmount) }}</span>
+                  <span class="tile__sub">
+                    {{
+                      a.hourlyCost
+                        ? a.downtimeHours + ' × ' + rub(a.hourlyCost) + ', округление HALF_UP'
+                        : 'введена при оценке, объект не указан'
+                    }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="panel">
+                <div class="panel__head">
+                  <span>Тяжесть определяет система по сумме</span>
+                  <span class="level-chip" [attr.data-level]="level()"
+                    >{{ a.impact }} · {{ impactNames[a.impact] }}</span
+                  >
+                </div>
+                <div
+                  class="severity"
+                  role="img"
+                  [attr.aria-label]="'Шкала тяжести: ' + severityNote()"
+                >
+                  @for (s of severity(); track s.name) {
+                    <div class="sev" [class.on]="s.on">
+                      <span class="sev__bar" [style.opacity]="s.on ? 1 : s.fill * 2"></span>
+                      <span class="sev__name">{{ s.name }}</span>
+                      <span class="sev__range">{{ s.range }}</span>
+                    </div>
+                  }
+                </div>
+                <p class="small">
+                  {{ severityNote() }}
+                  <span class="muted"
+                    >Пороги задаёт администратор, тяжесть вручную не выбирается.</span
+                  >
+                </p>
+              </div>
+
+              <div class="pair">
+                <div class="panel">
+                  <span class="label">Вероятность</span>
+                  <div
+                    class="dots"
+                    role="img"
+                    [attr.aria-label]="
+                      'Вероятность ' + a.likelihood + ' из 5: ' + likelihoodNames[a.likelihood]
+                    "
+                  >
+                    @for (k of [0, 1, 2, 3, 4, 5]; track k) {
+                      <span
+                        class="dot"
+                        [class.on]="k === a.likelihood"
+                        [class.below]="k < a.likelihood"
+                        >{{ k }}</span
+                      >
+                    }
+                  </div>
+                  <span class="strong"
+                    >{{ a.likelihood }} · {{ likelihoodNames[a.likelihood] }}</span
+                  >
+                </div>
+                <div class="panel">
+                  <span class="label">Итоговая оценка</span>
+                  <div class="formula">
+                    <span class="box">{{ a.likelihood }}</span
+                    >×<span class="box">{{ a.impact }}</span
+                    >=<span class="score" [attr.data-level]="level()">{{ a.score }}</span>
+                  </div>
+                  <span class="level-text" [attr.data-level]="level()">{{ levelText() }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="assess__map">
+              <span class="label">Положение на карте 5×5</span>
+              @if (a.likelihood && a.impact) {
+                <ui-heatmap
+                  [thresholds]="thresholds()"
+                  [mark]="[a.likelihood, a.impact]"
+                  [caption]="r.id"
+                />
+              } @else {
+                <p class="muted small">При R = 0 риск не попадает на карту 5×5.</p>
+              }
+            </div>
+          </div>
+
+          <div class="summary">
+            <div>
+              <span class="label">Оценил</span
+              ><span>{{ a.by }} · {{ a.byRole.toLowerCase() }}</span>
+            </div>
+            <div>
+              <span class="label">Дата оценки</span><span>{{ date(a.at, true) }}</span>
+            </div>
+            <div>
+              <span class="label">Уровень принятия</span>
+              @if (r.assessment) {
+                <span class="level-text" [attr.data-level]="level()">{{ level() }}</span>
+              } @else {
+                <span class="muted">нет, риск ждёт переоценки</span>
+              }
+            </div>
+            <div>
+              <span class="label">Режим цикла</span
+              ><span>{{ r.responseMode ? modeNames[r.responseMode] : 'не выбран' }}</span>
+            </div>
+          </div>
+        } @else {
+          <div class="empty">
+            <span class="empty__icon" aria-hidden="true"><ui-icon name="gauge" [size]="24" /></span>
+            <div class="empty__title">Риск ещё не оценён</div>
+            <p class="muted">
+              Первичную оценку проводит владелец основного процесса: {{ r.owner }}. После неё риск
+              станет «Активен», а паспорт закроется для правок.
+            </p>
+            @if (assessGate().ok) {
+              <button type="button" class="btn btn--sm" (click)="openAssess()">Оценить риск</button>
+            }
+          </div>
+        }
+      </section>
+
+      <section class="card block" aria-labelledby="h-rel">
+        <div class="block__head">
+          <h2 id="h-rel">Связанные риски</h2>
+          <span class="count">{{ r.related.length }}</span>
+          <span class="muted small">тот же объект, процесс или опасность</span>
+          <span class="grow"></span>
+          <a class="btn btn--ghost btn--xs" routerLink="/risks">Реестр рисков</a>
+        </div>
+        @if (r.related.length) {
+          <div class="scroll">
+            <table aria-label="Связанные риски">
+              <thead>
+                <tr>
+                  <th scope="col">Риск</th>
+                  <th scope="col">Опасность</th>
+                  <th scope="col">Владелец</th>
+                  <th scope="col">Оценка R</th>
+                  <th scope="col">Статус</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (x of r.related; track x.id) {
+                  <tr>
+                    <td>
+                      <span class="muted xs block">{{ x.id }} · ISO {{ x.iso }}</span>
+                      <a class="link" [routerLink]="['/risks', x.id]">{{ x.name }}</a>
+                      @if (x.top) {
+                        <ui-icon
+                          name="fire"
+                          [size]="12"
+                          class="fire"
+                          role="img"
+                          aria-label="Топ-риск"
+                        />
+                      }
+                    </td>
+                    <td class="small">{{ x.hazard }}</td>
+                    <td class="small">
+                      {{ x.owner }}<span class="muted xs block">{{ x.process }}</span>
+                    </td>
+                    <td>
+                      <ui-risk-score
+                        [likelihood]="x.likelihood"
+                        [impact]="x.impact"
+                        [status]="x.status"
+                        [thresholds]="thresholds()"
+                      />
+                    </td>
+                    <td><ui-risk-status [status]="x.status" /></td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="muted small">Связанных рисков нет.</p>
+        }
+      </section>
+    </div>
+
+    <aside class="card side" aria-label="Меры, история и комментарии">
+      <div class="tabs" role="tablist" aria-label="Разделы карточки риска">
+        <button
+          type="button"
+          role="tab"
+          class="pill"
+          id="t-measures"
+          aria-controls="p-measures"
+          [attr.aria-selected]="tab() === 'measures'"
+          (click)="tab.set('measures')"
+        >
+          Меры <span class="pill__count">{{ r.measures.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="pill"
+          id="t-history"
+          aria-controls="p-history"
+          [attr.aria-selected]="tab() === 'history'"
+          (click)="tab.set('history')"
+        >
+          История <span class="pill__count">{{ r.history.length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="pill"
+          id="t-comments"
+          aria-controls="p-comments"
+          [attr.aria-selected]="tab() === 'comments'"
+          (click)="tab.set('comments')"
+        >
+          Комментарии <span class="pill__count">{{ r.comments.length }}</span>
+        </button>
+      </div>
+
+      @switch (tab()) {
+        @case ('measures') {
+          <div role="tabpanel" id="p-measures" aria-labelledby="t-measures" class="panel-body">
+            <div class="side__head">
+              <h2>Предложенные меры</h2>
+              <span class="tip">
+                <button
+                  type="button"
+                  class="btn btn--sm"
+                  [attr.aria-disabled]="!measureGate().ok"
+                  aria-describedby="measure-tip-2"
+                  (click)="measureGate().ok && openMeasure()"
+                >
+                  <ui-icon name="plus" [size]="16" />Создать меру
+                </button>
+                @if (measureGate().why) {
+                  <span id="measure-tip-2" role="tooltip" class="tip__body tip__body--left">{{
+                    measureGate().why
+                  }}</span>
+                }
+              </span>
+            </div>
+
+            @if (r.measures.length) {
+              <div class="progress">
+                <div
+                  class="ring"
+                  role="img"
+                  [attr.aria-label]="'Выполнено ' + progress().done + ' мер из ' + progress().live"
+                  [style.--pct]="progress().pct + '%'"
+                >
+                  <span>{{ progress().done }}/{{ progress().live }}</span>
+                </div>
+                <div>
+                  <div class="strong">{{ progress().done }} из {{ progress().live }} готово</div>
+                  <div class="muted small">
+                    План {{ rub(progress().plan) }} · факт {{ rub(progress().fact) }}
+                  </div>
+                  <div class="legend">
+                    @for (l of progress().legend; track l.s) {
+                      <span><ui-measure-status [status]="l.s" /> {{ l.n }}</span>
+                    }
+                  </div>
+                </div>
+              </div>
+
+              @for (m of measures(); track m.id) {
+                @let strip = measureStrip(m);
+                <article class="measure" [attr.aria-label]="m.id + ' ' + m.title">
+                  <div class="measure__head">
+                    <ui-measure-status [status]="m.status" />
+                    <span class="tag tag--plain">{{ m.id }}</span>
+                  </div>
+                  <div>
+                    <h3>{{ m.title }}</h3>
+                    <p class="muted small">{{ m.description || 'Без описания' }}</p>
+                    <p class="muted xs">Процесс: {{ m.process }}</p>
+                  </div>
+                  <div class="measure__facts">
+                    <div>
+                      <span class="label">Срок выполнения</span><span>{{ dueText(m) }}</span>
+                    </div>
+                    <div>
+                      <span class="label">{{
+                        m.status === 'DONE' ? 'План / факт' : 'Плановая стоимость'
+                      }}</span>
+                      <span>{{
+                        m.status === 'DONE'
+                          ? rub(m.costPlanned) + ' / ' + rub(m.costActual ?? 0)
+                          : rub(m.costPlanned)
+                      }}</span>
+                    </div>
+                  </div>
+                  <div class="strip" [attr.data-level]="strip.level || null">
+                    @if (strip.level && strip.level !== 'NONE') {
+                      <span class="level-chip" [attr.data-level]="strip.level">{{
+                        strip.level
+                      }}</span>
+                    }
+                    <div>
+                      <div [class]="strip.tone">{{ strip.text }}</div>
+                      <div class="muted xs">{{ strip.sub }}</div>
+                    </div>
+                  </div>
+                </article>
+              }
+              <p class="muted xs">
+                Согласование, передачу к выполнению и завершение мер добавим вместе с разделом
+                «Меры».
+              </p>
+            } @else {
+              <p class="muted small">
+                Мер пока нет.
+                @if (r.status === 'ACTIVE' && !r.responseMode) {
+                  Меры добавляются после выбора режима «Обработать».
+                }
+              </p>
+            }
+          </div>
+        }
+        @case ('history') {
+          <div role="tabpanel" id="p-history" aria-labelledby="t-history" class="panel-body">
+            <h2>История изменений</h2>
+            <ol class="timeline">
+              @for (e of r.history; track $index) {
+                <li [attr.data-kind]="e.kind">
+                  <span class="timeline__dot" aria-hidden="true"></span>
+                  <div>
+                    <div class="muted xs">{{ date(e.at, true) }}</div>
+                    <div class="small">{{ e.text }}</div>
+                    <div class="muted xs">{{ e.by }} · {{ e.role }}</div>
+                  </div>
+                </li>
+              }
+            </ol>
+          </div>
+        }
+        @case ('comments') {
+          <div role="tabpanel" id="p-comments" aria-labelledby="t-comments" class="panel-body">
+            <h2>Комментарии</h2>
+            @for (c of r.comments; track c.id) {
+              <div class="comment">
+                <span class="avatar avatar--xs" aria-hidden="true"
+                  >{{ c.author.slice(0, 1) }}{{ c.author.split(' ')[1]?.slice(0, 1) }}</span
+                >
+                <div class="comment__body">
+                  <div>
+                    <span class="strong small">{{ c.author }}</span>
+                    <span class="muted xs">{{ c.role }}</span>
+                  </div>
+                  <div class="bubble small">{{ c.text }}</div>
+                  <div class="muted xs">{{ date(c.at, true) }}</div>
+                </div>
+              </div>
+            } @empty {
+              <p class="muted small">Комментариев пока нет.</p>
+            }
+            @if (commentGate().ok) {
+              <form
+                class="compose"
+                (submit)="$event.preventDefault(); draft().trim() && sendComment()"
+              >
+                <label class="sr-only" for="new-comment">Новый комментарий к риску</label>
+                <textarea
+                  id="new-comment"
+                  class="input"
+                  rows="3"
+                  maxlength="2000"
+                  placeholder="Комментарий к риску"
+                  [value]="draft()"
+                  (input)="draft.set($any($event.target).value)"
+                ></textarea>
+                <div class="compose__foot">
+                  <span class="muted xs">Видят все, у кого есть доступ к риску</span>
+                  <button type="submit" class="btn btn--sm" [disabled]="!draft().trim() || busy()">
+                    Отправить
+                  </button>
+                </div>
+              </form>
+            }
+          </div>
+        }
+      }
+    </aside>
+  </div>
+} @else if (resource.error()) {
+  <ui-page-header
+    title="Карточка риска"
+    [crumbs]="[{ label: 'Реестр рисков', link: '/risks' }, id()]"
+  />
+  <section class="card empty" role="alert">
+    <div class="empty__title">
+      {{
+        $any(resource.error())?.status === 404
+          ? 'Риск не найден'
+          : 'Не удалось загрузить риск. Повторите попытку'
+      }}
+    </div>
+    <div class="row">
+      <a class="btn btn--ghost btn--sm" routerLink="/risks">К реестру</a>
+      @if ($any(resource.error())?.status !== 404) {
+        <button type="button" class="btn btn--sm" (click)="resource.reload()">Повторить</button>
+      }
+    </div>
+  </section>
+} @else {
+  <ui-page-header
+    title="Карточка риска"
+    [crumbs]="[{ label: 'Реестр рисков', link: '/risks' }, id()]"
+  />
+  <section class="card empty muted" aria-busy="true">Загружаем карточку…</section>
+}

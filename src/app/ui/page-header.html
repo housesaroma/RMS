@@ -3,7 +3,12 @@
     <nav class="crumbs" aria-label="Навигационная цепочка">
       <ui-icon name="home" [size]="16" />
       @for (c of crumbs(); track $index) {
-        <span aria-hidden="true">/</span><span>{{ c }}</span>
+        <span aria-hidden="true">/</span>
+        @if (typeof c === 'string') {
+          <span>{{ c }}</span>
+        } @else {
+          <a class="crumb-link" [routerLink]="c.link">{{ c.label }}</a>
+        }
       }
     </nav>
     <span class="grow"></span>
@@ -31,11 +36,13 @@
       </div>
     }
   </div>
-  <div class="title">
+  <ng-content select="[slot=meta]" />
+  <div class="title" [class.compact]="compact()">
     <h1>{{ title() }}</h1>
     @if (subtitle()) {
       <p class="muted">{{ subtitle() }}</p>
     }
+    <ng-content select="[slot=aside]" />
   </div>
   <div class="actions"><ng-content /></div>
 </header>

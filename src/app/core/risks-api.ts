@@ -2,7 +2,16 @@ import { HttpClient, HttpParams, httpResource } from '@angular/common/http';
 import { Service, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API } from './api';
-import { Dictionaries, NewRisk, Risk, RiskQuery } from './models';
+import {
+  AssessmentInput,
+  Dictionaries,
+  NewMeasure,
+  NewRisk,
+  ResponseMode,
+  Risk,
+  RiskDetails,
+  RiskQuery,
+} from './models';
 
 /** Query → HTTP params, skipping defaults so URLs and requests stay short. */
 export function riskParams(q: Partial<RiskQuery>): Record<string, string> {
@@ -30,6 +39,23 @@ export class RisksApi {
 
   create(body: NewRisk): Promise<Risk> {
     return firstValueFrom(this.http.post<Risk>(`${API}/risks`, body));
+  }
+
+  // Card actions return the updated card.
+  assess(id: string, body: AssessmentInput): Promise<RiskDetails> {
+    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/assessments`, body));
+  }
+
+  chooseMode(id: string, mode: ResponseMode): Promise<RiskDetails> {
+    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/mode`, { mode }));
+  }
+
+  comment(id: string, text: string): Promise<RiskDetails> {
+    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/comments`, { text }));
+  }
+
+  createMeasure(id: string, body: NewMeasure): Promise<RiskDetails> {
+    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/measures`, body));
   }
 
   /** Downloads the CSV export: either the given ids or everything matching the filters. */

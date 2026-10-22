@@ -1,5 +1,8 @@
 import { RiskQuery } from '../models';
-import { DICTIONARIES, RISKS, USERS } from './db';
+import { DICTIONARIES, USERS } from './db';
+import { seedRisks } from './seed';
+
+const RISKS = seedRisks();
 import { createRisk, filterRisks, pageRisks, validateNewRisk } from './risks';
 
 const q = (over: Partial<RiskQuery> = {}): RiskQuery => ({
@@ -72,12 +75,14 @@ describe('mock risk registry', () => {
       'Заполните обязательные поля',
     );
 
-    const risk = createRisk(RISKS, body, DICTIONARIES, '2026-10-22');
+    const risk = createRisk(RISKS, body, user('U-005'), DICTIONARIES, '2026-10-22T09:00:00Z');
     expect(risk).toMatchObject({
       id: 'R-0154',
       status: 'DRAFT',
       likelihood: null,
       owner: 'Ким Р. А.',
+      author: 'Петров А. В.',
+      createdAt: '2026-10-22',
     });
   });
 });

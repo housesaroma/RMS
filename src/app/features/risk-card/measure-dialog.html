@@ -1,0 +1,143 @@
+<div class="dialog body">
+  <div class="head">
+    <div class="grow">
+      <h2 id="nm-title">Новая мера</h2>
+      <p class="muted lead">
+        Мера к риску {{ risk.id }} «{{ risk.name }}». Создаётся в статусе «Черновик».
+      </p>
+    </div>
+    <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
+      <ui-icon name="close" [size]="16" />
+    </button>
+  </div>
+
+  <form [formRoot]="f" class="form">
+    <label class="field">
+      <span class="muted">Название меры *</span>
+      <input
+        class="input"
+        type="text"
+        placeholder="Например, мониторинг очереди сборок"
+        [formField]="f.title"
+      />
+      @if (f.title().touched() && f.title().errors()[0]; as e) {
+        <span class="field__error">{{ e.message }}</span>
+      }
+    </label>
+
+    <label class="field">
+      <span class="muted">Описание</span>
+      <textarea
+        class="input"
+        rows="2"
+        placeholder="Что именно будет сделано"
+        [formField]="f.description"
+      ></textarea>
+    </label>
+
+    <label class="field">
+      <span class="muted">Процесс меры *</span>
+      <span class="select">
+        <select class="input" [formField]="f.process">
+          @for (p of processes; track p.name) {
+            <option [value]="p.name">
+              {{ p.name }} · {{ p.directorate }}{{ p.primary ? ', основной' : '' }}
+            </option>
+          }
+        </select>
+      </span>
+    </label>
+
+    @if (busy(); as b) {
+      <div class="note" role="note">
+        <ui-icon name="info" [size]="18" />
+        <span>
+          В дирекции по этому риску уже есть активная мера {{ b.id }}. Новую меру можно создать
+          сейчас, а отправить на согласование после её завершения.
+        </span>
+      </div>
+    }
+
+    <div class="grid2">
+      <label class="field">
+        <span class="muted">Срок выполнения *</span>
+        <input class="input" type="date" [formField]="f.dueDate" />
+        @if (f.dueDate().touched() && f.dueDate().errors()[0]; as e) {
+          <span class="field__error">{{ e.message }}</span>
+        }
+      </label>
+      <label class="field">
+        <span class="muted">Запланированная стоимость *</span>
+        <span class="money">
+          <input
+            class="input"
+            type="text"
+            inputmode="numeric"
+            placeholder="0"
+            aria-describedby="nm-route"
+            [formField]="f.cost"
+            (input)="formatCost($any($event.target).value)"
+          />
+          <span aria-hidden="true">₽</span>
+        </span>
+        @if (f.cost().touched() && f.cost().errors()[0]; as e) {
+          <span class="field__error">{{ e.message }}</span>
+        }
+      </label>
+    </div>
+
+    <div
+      id="nm-route"
+      class="route"
+      [attr.data-level]="route()?.level === 'NONE' ? null : route()?.level"
+      aria-live="polite"
+    >
+      <div class="route__head">
+        <span class="muted small">Кто согласует</span>
+        @if (route(); as r) {
+          @if (r.level !== 'NONE') {
+            <span class="level-chip">{{ r.level }}</span>
+          }
+        }
+      </div>
+      <div class="route__title">{{ route()?.head ?? 'Укажите плановую стоимость' }}</div>
+      <div>{{ route()?.who ?? 'Система сразу покажет, кто будет согласовывать меру.' }}</div>
+      <div class="muted small">
+        {{
+          route()?.why ??
+            'Пороги: OWNER от ' +
+              rub(dict.approval.owner) +
+              ', DIRECTOR от ' +
+              rub(dict.approval.director) +
+              ', CEO от ' +
+              rub(dict.approval.ceo)
+        }}
+      </div>
+      <div class="segs">
+        @for (s of segments(); track s.code) {
+          <div [class.on]="s.on" [attr.data-level]="s.code">
+            <i></i>
+            <span>{{ s.code }}</span>
+            <span>от {{ s.from }}</span>
+          </div>
+        }
+      </div>
+      <p class="muted xs">
+        Согласование одноуровневое: действует самый высокий достигнутый порог, цепочки OWNER →
+        DIRECTOR → CEO нет.
+      </p>
+    </div>
+
+    @if (error()) {
+      <div class="field__error strong" role="alert">{{ error() }}</div>
+    }
+
+    <div class="buttons">
+      <span class="muted xs grow">* обязательные поля</span>
+      <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Отмена</button>
+      <button type="submit" class="btn btn--sm" [disabled]="f().submitting()">
+        {{ f().submitting() ? 'Создаём…' : 'Создать' }}
+      </button>
+    </div>
+  </form>
+</div>

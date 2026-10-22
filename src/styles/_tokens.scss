@@ -140,6 +140,14 @@
   --lv-treatment: #ff4d5e;
   --lv-treatment-text: #ff6b7a;
   --lv-treatment-on: #1a1a1a;
+  // Heat map cells: level hue mixed with transparency.
+  --lv-owner-hue: #66ff4c;
+  --lv-director-hue: #ffd84d;
+  --lv-ceo-hue: #ff7a47;
+  --lv-treatment-hue: #ff4d5e;
+  --heat-alpha: 18%;
+  --hole: #1f1f1f;
+  --heat-fg: rgba(255, 255, 255, 0.7);
 
   // Risk statuses
   --rs-draft-bg: rgba(255, 255, 255, 0.08);
@@ -274,6 +282,15 @@
   --lv-treatment: #f3aeb6;
   --lv-treatment-text: #8e1f2c;
   --lv-treatment-on: #5c0f18;
+  --lv-owner-hue: #3fa34d;
+  --lv-director-hue: #e0b400;
+  --lv-ceo-hue: #e8642c;
+  --lv-treatment-hue: #d93a4a;
+  --heat-alpha: 28%;
+  --hole: #efe8dc;
+  --heat-fg: #3e3a35;
+  --heat-mark-bg: #111111;
+  --heat-mark-fg: #ffffff;
 
   --rs-draft-bg: rgba(255, 255, 255, 0.7);
   --rs-draft-fg: #3e3a35;

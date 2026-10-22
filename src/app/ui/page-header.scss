@@ -150,7 +150,35 @@
   }
 }
 
+.title.compact {
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  justify-content: space-between;
+
+  h1 {
+    max-width: 900px;
+    font-size: 44px;
+    line-height: 1.08;
+    letter-spacing: -0.015em;
+  }
+}
+
+.crumb-link {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 1100px) {
+  .title.compact {
+    flex-wrap: wrap;
+  }
+}
+
 @media (max-width: 760px) {
+  .title.compact h1 {
+    font-size: 32px;
+  }
   .hero {
     padding: 18px;
   }

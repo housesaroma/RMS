@@ -1,14 +1,30 @@
 import { HttpParams } from '@angular/common/http';
 import {
+  AssessmentInput,
   Dictionaries,
+  HistoryEvent,
+  NewMeasure,
   NewRisk,
   RISK_STATUS_NAMES,
+  ROLE_NAMES,
+  ResponseMode,
   Risk,
+  RiskDetails,
   RiskPage,
   RiskQuery,
   RiskTab,
   User,
+  levelOf,
 } from '../models';
+import {
+  canAccept,
+  canAssess,
+  canComment,
+  canCreateMeasure,
+  canTreat,
+  impactOf,
+  lossOf,
+} from '../risk-rules';
 
 export const PAGE_SIZE = 10;
 
@@ -99,9 +115,23 @@ export function validateNewRisk(body: NewRisk, user: User, d: Dictionaries): str
   return null;
 }
 
-export function createRisk(all: Risk[], body: NewRisk, d: Dictionaries, today: string): Risk {
+const roleOf = (u: User) => u.position || ROLE_NAMES[u.roles[0]];
+const shortName = (fullName: string) => {
+  const [last, first = '', middle = ''] = fullName.split(' ');
+  return `${last} ${first[0] ?? ''}. ${middle[0] ?? ''}.`.replace(' . .', '');
+};
+const money = (n: number) => `${n.toLocaleString('ru-RU')} ₽`;
+
+export function createRisk(
+  all: RiskDetails[],
+  body: NewRisk,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): RiskDetails {
   const next = Math.max(...all.map((r) => Number(r.id.slice(2)))) + 1;
   const process = d.processes.find((p) => p.name === body.process)!;
+  const by = shortName(user.fullName);
   return {
     id: 'R-' + String(next).padStart(4, '0'),
     iso: '—',
@@ -113,12 +143,215 @@ export function createRisk(all: Risk[], body: NewRisk, d: Dictionaries, today: s
     directorate: process.directorate,
     owner: process.owner,
     asset: body.asset || null,
-    createdAt: today,
+    createdAt: now.slice(0, 10),
+    createdAtTime: now,
     likelihood: null,
     impact: null,
     status: 'DRAFT',
     top: body.top,
+    author: by,
+    authorPosition: roleOf(user),
+    secondary: [],
+    responseMode: null,
+    modeAt: null,
+    assessment: null,
+    previous: null,
+    measures: [],
+    history: [
+      {
+        at: now,
+        text: `Риск зарегистрирован в статусе «Черновик»${body.top ? ' и отмечен как топ-риск' : ''}`,
+        by,
+        role: roleOf(user),
+        kind: 'create',
+      },
+    ],
+    comments: [],
+    related: [],
   };
+}
+
+/** Registry row without the card-only fields. */
+export function toRisk(r: RiskDetails): Risk {
+  const {
+    id,
+    iso,
+    name,
+    description,
+    hazard,
+    category,
+    process,
+    directorate,
+    owner,
+    asset,
+    createdAt,
+    likelihood,
+    impact,
+    status,
+    top,
+  } = r;
+  return {
+    id,
+    iso,
+    name,
+    description,
+    hazard,
+    category,
+    process,
+    directorate,
+    owner,
+    asset,
+    createdAt,
+    likelihood,
+    impact,
+    status,
+    top,
+  };
+}
+
+/** Card with related risks: same asset, process or hazard (rule from the prototype; ТЗ has none). */
+export function riskCard(all: RiskDetails[], id: string): RiskDetails | null {
+  const r = all.find((x) => x.id === id);
+  if (!r) return null;
+  const related = all
+    .filter(
+      (x) =>
+        x.id !== r.id &&
+        x.status !== 'CLOSED' &&
+        ((r.asset && x.asset === r.asset) || x.process === r.process || x.hazard === r.hazard),
+    )
+    .slice(0, 5)
+    .map(toRisk);
+  return { ...r, related };
+}
+
+const event = (r: RiskDetails, user: User, now: string, text: string, kind: HistoryEvent['kind']) =>
+  r.history.unshift({ at: now, text, by: shortName(user.fullName), role: roleOf(user), kind });
+
+/** UC-2-04 and reassessment: a new assessment version makes the risk active. Returns an error or null. */
+export function assess(
+  r: RiskDetails,
+  input: AssessmentInput,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const gate = canAssess(r, user, d);
+  if (!gate.ok) return gate.why;
+  if (!Number.isInteger(input.likelihood) || input.likelihood < 0 || input.likelihood > 5)
+    return 'Выберите вероятность от 0 до 5';
+  const cost = r.asset
+    ? (d.assets.find((a) => a.name === r.asset)?.hourlyDowntimeCost ?? null)
+    : null;
+  if (r.asset && !cost) return 'Расчёт недоступен: у объекта не указана стоимость простоя';
+  const values = [input.lossAmount, input.weeks, input.days, input.hours].filter((v) => v != null);
+  if (values.some((v) => v! < 0 || !Number.isFinite(v)))
+    return 'Значения не могут быть отрицательными';
+  const { hours, loss } = lossOf(input, cost);
+  const impact = impactOf(loss, d.impactThresholds);
+  const score = input.likelihood * impact;
+  const first = r.status === 'DRAFT';
+  r.assessment = {
+    likelihood: input.likelihood,
+    impact,
+    score,
+    lossAmount: loss,
+    hourlyCost: cost,
+    downtimeHours: hours,
+    by: shortName(user.fullName),
+    byRole: roleOf(user),
+    at: now,
+  };
+  r.previous = null;
+  r.likelihood = input.likelihood;
+  r.impact = impact;
+  r.status = 'ACTIVE';
+  r.responseMode = null;
+  r.modeAt = null;
+  event(
+    r,
+    user,
+    now,
+    `${first ? 'Первичная оценка' : 'Переоценка'}: сумма последствий ${money(loss)}, тяжесть ${impact}, R = ${input.likelihood} × ${impact} = ${score}. Статус «Активен»`,
+    'assess',
+  );
+  return null;
+}
+
+export function chooseMode(
+  r: RiskDetails,
+  mode: ResponseMode,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const gate =
+    mode === 'accept' ? canAccept(r, user, d) : mode === 'treat' ? canTreat(r, user, d) : null;
+  if (!gate) return 'Режим пока не поддерживается';
+  if (!gate.ok) return gate.why;
+  r.responseMode = mode;
+  r.modeAt = now;
+  if (mode === 'accept') r.status = 'ACCEPTED';
+  const level = levelOf(r.assessment!.score, d.thresholds);
+  event(
+    r,
+    user,
+    now,
+    mode === 'accept'
+      ? `Риск принят на уровне ${level}, R = ${r.assessment!.score}. Статус «Принят»`
+      : `Выбран режим «Обработать»${level === 'TREATMENT_REQUIRED' ? ': риск уровня TREATMENT_REQUIRED принять нельзя' : ''}`,
+    'mode',
+  );
+  return null;
+}
+
+export function addComment(r: RiskDetails, text: string, user: User, now: string): string | null {
+  const gate = canComment(user);
+  if (!gate.ok) return gate.why;
+  if (!text.trim()) return 'Введите текст комментария';
+  if (text.length > 2000) return 'Комментарий не длиннее 2000 символов';
+  r.comments.push({
+    id: `C-${r.id}-${Date.now()}`,
+    authorId: user.id,
+    author: shortName(user.fullName),
+    role: roleOf(user),
+    at: now,
+    text: text.trim(),
+  });
+  return null;
+}
+
+export function addMeasure(
+  all: RiskDetails[],
+  r: RiskDetails,
+  body: NewMeasure,
+  user: User,
+  now: string,
+): string | null {
+  const gate = canCreateMeasure(r, user);
+  if (!gate.ok) return gate.why;
+  if (!body.title.trim() || !body.dueDate || !(body.costPlanned >= 0))
+    return 'Заполните обязательные поля';
+  const processes = [r.process, ...r.secondary.map((p) => p.name)];
+  if (!processes.includes(body.process)) return 'Выберите процесс, связанный с риском';
+  const next = Math.max(0, ...all.flatMap((x) => x.measures.map((m) => Number(m.id.slice(2))))) + 1;
+  const id = 'М-' + String(next).padStart(4, '0');
+  r.measures.unshift({
+    id,
+    title: body.title.trim(),
+    description: body.description.trim(),
+    status: 'DRAFT',
+    process: body.process,
+    dueDate: body.dueDate,
+    costPlanned: body.costPlanned,
+    costActual: null,
+    executor: null,
+    sentAt: null,
+    decidedAt: null,
+    doneAt: null,
+  });
+  event(r, user, now, `Создана мера ${id} «${body.title.trim()}» в статусе «Черновик»`, 'measure');
+  return null;
 }
 
 export function toCsv(list: Risk[]): string {

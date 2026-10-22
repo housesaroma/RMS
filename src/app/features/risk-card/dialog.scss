@@ -1,0 +1,238 @@
+// Shared by the risk card dialogs.
+.body {
+  padding: 24px 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+
+  h2 {
+    margin: 0;
+    font-size: 30px;
+    line-height: 1.1;
+    font-weight: 300;
+    letter-spacing: -0.01em;
+  }
+}
+
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.lead {
+  margin: 8px 0 0;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+
+.field > .muted {
+  font-size: var(--fs-sm);
+}
+
+.fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+
+  legend {
+    padding: 0;
+    margin-bottom: 6px;
+  }
+}
+
+.small {
+  font-size: var(--fs-sm);
+}
+.xs {
+  font-size: var(--fs-xs);
+}
+.strong {
+  font-weight: 500;
+}
+.label {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+}
+
+p {
+  margin: 0;
+}
+
+.scale {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+
+  &__item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 4px;
+    border-radius: var(--r-md);
+    border: 1px solid var(--field-border);
+    background: var(--field-bg);
+    color: var(--field-fg);
+    cursor: pointer;
+
+    &[aria-checked='true'] {
+      background: var(--btn-bg);
+      color: var(--btn-fg);
+      border-color: var(--btn-bg);
+    }
+  }
+
+  &__n {
+    font-size: 20px;
+    font-weight: 300;
+  }
+
+  &__name {
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+  }
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--lv-h, var(--muted)) 12%, var(--inner-bg));
+  border: 1px solid color-mix(in srgb, var(--lv-h, var(--muted)) 35%, transparent);
+  font-size: var(--fs-md);
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
+
+.score {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 9px;
+  font-weight: 600;
+  background: var(--lv, var(--chip-bg));
+  color: var(--lv-fg, var(--text));
+}
+
+.route {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: var(--r-lg);
+  background: color-mix(in srgb, var(--lv-h, var(--muted)) 14%, var(--inner-bg));
+  border: 1px solid color-mix(in srgb, var(--lv-h, var(--muted)) 40%, transparent);
+  font-size: var(--fs-md);
+
+  &__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  &__title {
+    font-size: var(--fs-xl);
+    font-weight: 400;
+  }
+}
+
+.segs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 4px;
+
+  > div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  i {
+    height: 6px;
+    border-radius: var(--r-pill);
+    background: color-mix(in srgb, var(--lv-h) 25%, transparent);
+  }
+
+  .on {
+    color: var(--text);
+    font-weight: 600;
+
+    i {
+      background: var(--lv-h);
+    }
+  }
+}
+
+.money {
+  position: relative;
+  display: flex;
+
+  .input {
+    padding-right: 34px;
+  }
+
+  span {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+  }
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .scale {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .grid2,
+  .grid3 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
