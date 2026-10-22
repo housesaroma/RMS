@@ -13,6 +13,7 @@ import {
   LoginResponse,
   NewMeasure,
   NewRisk,
+  Period,
   ResponseMode,
   RiskDetails,
 } from '../models';
@@ -32,15 +33,16 @@ import {
   validateNewRisk,
 } from './risks';
 import { seedRisks } from './seed';
+import { dashboard } from './dashboard';
 import { approvalsFor, pageMeasures, parseMeasureQuery, transitionMeasure } from './measures';
 
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
 
 // Everything changed in the demo survives a page reload; bump the key when the seed changes shape.
-const STORE = 'rms.mock.v3';
+const STORE = 'rms.mock.v4';
 const risks: RiskDetails[] = (() => {
   try {
-    ['rms.mock.risks', 'rms.mock.v2'].forEach((k) => localStorage.removeItem(k));
+    ['rms.mock.risks', 'rms.mock.v2', 'rms.mock.v3'].forEach((k) => localStorage.removeItem(k));
     return (
       (JSON.parse(localStorage.getItem(STORE) ?? 'null') as RiskDetails[] | null) ?? seedRisks()
     );
@@ -178,6 +180,14 @@ const routes: [string, RegExp, Handler][] = [
     'GET',
     /^measures$/,
     (req) => pageMeasures(risks, parseMeasureQuery(req.params), userFromToken(req), DICTIONARIES),
+  ],
+  [
+    'GET',
+    /^dashboard$/,
+    (req) => (
+      userFromToken(req),
+      dashboard(risks, (req.params.get('period') as Period) || 'quarter', DICTIONARIES)
+    ),
   ],
   ['GET', /^approvals$/, (req) => approvalsFor(risks, userFromToken(req), DICTIONARIES)],
   [

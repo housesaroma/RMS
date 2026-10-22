@@ -28,7 +28,9 @@ export type IconName =
   | 'fire'
   | 'lock'
   | 'gauge'
-  | 'tasks';
+  | 'tasks'
+  | 'check'
+  | 'grip';
 
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */
 @Component({

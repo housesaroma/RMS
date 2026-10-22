@@ -1,0 +1,624 @@
+<ui-page-header
+  title="Дашборд"
+  [crumbs]="['Система управления рисками', 'Дашборд']"
+  [subtitle]="greeting()"
+>
+  <div class="periods" role="radiogroup" aria-label="Период">
+    @for (p of periods; track p.key) {
+      <button
+        type="button"
+        role="radio"
+        class="period"
+        [attr.aria-checked]="period() === p.key"
+        (click)="period.set(p.key)"
+      >
+        {{ p.name }}
+      </button>
+    }
+  </div>
+  @if (data.value(); as d) {
+    <span class="btn btn--soft btn--sm range"
+      ><ui-icon name="calendar" [size]="16" />{{ date(d.from) }} — {{ date(d.to) }}</span
+    >
+  }
+  <span class="grow"></span>
+  <button
+    type="button"
+    class="btn btn--soft btn--sm"
+    [attr.aria-pressed]="customize()"
+    (click)="customize.set(!customize())"
+  >
+    <ui-icon name="sliders" [size]="16" />{{ customize() ? 'Готово' : 'Настроить дашборд' }}
+  </button>
+  <button type="button" class="btn btn--sm" [cdkMenuTriggerFor]="exportMenu">
+    <ui-icon name="download" [size]="16" />Скачать отчёт
+  </button>
+</ui-page-header>
+
+<ng-template #exportMenu>
+  <div class="menu" cdkMenu>
+    <button type="button" class="menu__item" cdkMenuItem (cdkMenuItemTriggered)="exportCsv()">
+      Реестр рисков, CSV
+    </button>
+    <button type="button" class="menu__item" cdkMenuItem (cdkMenuItemTriggered)="print()">
+      Дашборд, печать или PDF
+    </button>
+    <a class="menu__item" cdkMenuItem routerLink="/reports">Все отчёты →</a>
+  </div>
+</ng-template>
+
+@if (customize()) {
+  <section class="card panel" aria-label="Настройка дашборда">
+    <div class="row">
+      <div class="grow">
+        <h2>Настройка дашборда</h2>
+        <p class="muted small">
+          Перетащите виджет за ручку или переставьте стрелками, поменяйте ширину, скройте лишнее.
+          Набор сохраняется для вашей учётной записи.
+        </p>
+      </div>
+      <span class="muted small">Набор:</span>
+      <button
+        type="button"
+        class="pill"
+        [attr.aria-selected]="preset() === 'figma'"
+        (click)="applyPreset('figma')"
+      >
+        Как в Figma
+      </button>
+      <button
+        type="button"
+        class="pill"
+        [attr.aria-selected]="preset() === 'exec'"
+        (click)="applyPreset('exec')"
+      >
+        Для руководства
+      </button>
+      <button type="button" class="btn btn--sm" (click)="customize.set(false)">Готово</button>
+    </div>
+    <div class="library">
+      @for (w of library(); track w.id) {
+        <button
+          type="button"
+          class="lib"
+          [class.on]="w.shown"
+          [attr.aria-pressed]="w.shown"
+          (click)="toggleWidget(w.id)"
+        >
+          <span class="lib__mark" aria-hidden="true"
+            ><ui-icon [name]="w.shown ? 'check' : 'plus'" [size]="14"
+          /></span>
+          <span>
+            <span class="lib__title">{{ w.title }}</span>
+            <span class="lib__desc">{{ w.desc }}</span>
+          </span>
+        </button>
+      }
+    </div>
+  </section>
+}
+
+@if (data.error() && !data.hasValue()) {
+  <section class="card empty" role="alert">
+    <div class="empty__title">Не удалось загрузить дашборд. Повторите попытку</div>
+    <button type="button" class="btn btn--sm" (click)="data.reload()">Повторить</button>
+  </section>
+} @else if (data.value(); as d) {
+  <div
+    class="grid"
+    cdkDropList
+    cdkDropListOrientation="mixed"
+    [cdkDropListData]="layout()"
+    [cdkDropListDisabled]="!customize()"
+    (cdkDropListDropped)="drop($event)"
+  >
+    @for (slot of layout(); track slot.id; let k = $index, first = $first, last = $last) {
+      <section
+        class="card widget"
+        cdkDrag
+        [style.grid-column]="'span ' + slot.span"
+        [attr.aria-label]="widgets[slot.id].title"
+        [class.editing]="customize()"
+      >
+        <div class="widget__head">
+          <h2>{{ widgets[slot.id].title }}</h2>
+          @switch (slot.id) {
+            @case ('status') {
+              <span class="muted small">динамика за период</span>
+            }
+            @case ('top') {
+              <span class="count">{{ d.top.length }}</span>
+            }
+            @case ('heat') {
+              <span class="muted small">{{ assessedTotal() }} оценённых</span>
+            }
+            @case ('levels') {
+              <span class="muted small">по текущим оценкам</span>
+            }
+            @case ('kri') {
+              <span class="muted small">пример набора, перечень утверждается</span>
+            }
+            @case ('mitig') {
+              <span class="muted small">{{ mitig()?.total }} мер в исполнении</span>
+            }
+            @case ('dyn') {
+              <span class="muted small">7 недель</span>
+            }
+            @case ('appr') {
+              <span class="count count--hot">{{ d.approvals.length }}</span
+              ><span class="muted small">ждут решения</span>
+            }
+          }
+          <span class="grow"></span>
+          @if (customize()) {
+            <div
+              class="toolbar"
+              role="toolbar"
+              [attr.aria-label]="'Управление виджетом ' + widgets[slot.id].title"
+            >
+              <span class="handle" cdkDragHandle title="Перетащите виджет" aria-hidden="true"
+                ><ui-icon name="grip" [size]="16"
+              /></span>
+              <button
+                type="button"
+                class="tb"
+                aria-label="Переместить раньше"
+                [disabled]="first"
+                (click)="move(k, -1)"
+              >
+                <ui-icon name="chevron-left" [size]="16" />
+              </button>
+              <button
+                type="button"
+                class="tb"
+                aria-label="Переместить позже"
+                [disabled]="last"
+                (click)="move(k, 1)"
+              >
+                <ui-icon name="chevron-right" [size]="16" />
+              </button>
+              @if (widgets[slot.id].sizes.length > 1) {
+                <button
+                  type="button"
+                  class="tb tb--text"
+                  [attr.aria-label]="'Изменить ширину, сейчас ' + widthLabel(slot.span)"
+                  (click)="cycleWidth(k)"
+                >
+                  {{ widthLabel(slot.span) }}
+                </button>
+              }
+              <button
+                type="button"
+                class="tb"
+                aria-label="Скрыть виджет"
+                (click)="toggleWidget(slot.id)"
+              >
+                <ui-icon name="close" [size]="14" />
+              </button>
+            </div>
+          } @else {
+            @switch (slot.id) {
+              @case ('dirs') {
+                <label class="select small-select">
+                  <span class="sr-only">Дирекция</span>
+                  <select
+                    class="input"
+                    [value]="dir()"
+                    (change)="dir.set($any($event.target).value)"
+                  >
+                    <option value="">Все дирекции</option>
+                    @for (x of d.directorates; track x.name) {
+                      <option [value]="x.name">{{ x.name }}</option>
+                    }
+                  </select>
+                </label>
+              }
+              @case ('top') {
+                <div class="row">
+                  <button
+                    type="button"
+                    class="icon-btn nav"
+                    aria-label="Предыдущие топ-риски"
+                    [disabled]="topIndex() === 0"
+                    (click)="topIndex.set(topIndex() - 1)"
+                  >
+                    <ui-icon name="chevron-left" [size]="16" />
+                  </button>
+                  <button
+                    type="button"
+                    class="icon-btn nav"
+                    aria-label="Следующие топ-риски"
+                    [disabled]="topIndex() + 3 >= d.top.length"
+                    (click)="topIndex.set(topIndex() + 1)"
+                  >
+                    <ui-icon name="chevron-right" [size]="16" />
+                  </button>
+                </div>
+              }
+              @case ('heat') {
+                <a class="btn btn--ghost btn--xs" routerLink="/risks">Все риски</a>
+              }
+              @case ('appr') {
+                <a
+                  class="btn btn--ghost btn--xs"
+                  routerLink="/measures"
+                  [queryParams]="{ tab: 'approvals' }"
+                  >Очередь</a
+                >
+              }
+            }
+          }
+        </div>
+
+        @switch (slot.id) {
+          @case ('status') {
+            <div class="tiles tiles--6">
+              @for (s of ['all'].concat(statuses); track s) {
+                @let c = statusCount($any(s));
+                <a
+                  class="tile"
+                  [routerLink]="s === 'CLOSED' ? '/archive' : '/risks'"
+                  [queryParams]="s === 'all' || s === 'CLOSED' ? {} : { tab: s }"
+                >
+                  <span class="tile__label"
+                    ><i class="sdot" [attr.data-status]="s"></i>{{ statusLabel(s) }}</span
+                  >
+                  <span class="tile__value">{{ c.n }}</span>
+                  <span class="tile__dyn" [class.up]="c.delta > 0"
+                    >{{ c.delta > 0 ? '↑ ' + c.delta : '0' }} за период</span
+                  >
+                </a>
+              }
+            </div>
+          }
+          @case ('attention') {
+            <div class="tiles tiles--4">
+              <a
+                class="tile glow"
+                data-tone="treatment"
+                routerLink="/risks"
+                [queryParams]="{ tab: 'top' }"
+              >
+                <span class="tile__label"
+                  >Критичные (топ-риски) <ui-icon name="fire" [size]="13" class="fire"
+                /></span>
+                <span class="tile__value">{{ d.attention.top }}</span>
+                <span class="muted xs"
+                  >{{ d.attention.topCritical }} с уровнем TREATMENT_REQUIRED,
+                  {{ d.attention.topUnassessed }} без оценки</span
+                >
+              </a>
+              <a
+                class="tile glow"
+                data-tone="neutral"
+                routerLink="/risks"
+                [queryParams]="{ tab: 'DRAFT' }"
+              >
+                <span class="tile__label">Без оценки</span>
+                <span class="tile__value">{{ d.attention.unassessed }}</span>
+                <span class="muted xs">дольше 14 дней: {{ d.attention.unassessedOld }}</span>
+              </a>
+              <a
+                class="tile glow"
+                data-tone="ceo"
+                routerLink="/risks"
+                [queryParams]="{ tab: 'ACTIVE' }"
+              >
+                <span class="tile__label">Требуют решения</span>
+                <span class="tile__value">{{ d.attention.decision }}</span>
+                <span class="muted xs">принять или обработать</span>
+              </a>
+              <a class="tile glow" data-tone="progress" routerLink="/measures">
+                <span class="tile__label">Меры в работе</span>
+                <span class="tile__value">{{ d.attention.measuresActive }}</span>
+                <span class="muted xs"
+                  >{{ d.attention.measuresApproval }} мер ждут согласования</span
+                >
+              </a>
+            </div>
+          }
+          @case ('sum') {
+            @if (sumChart(); as c) {
+              <div class="sum">
+                <span class="sum__value">{{ million(d.sum.total) }}</span>
+                <span class="tile__dyn" [class.up]="c.growth > 0"
+                  >{{ c.growth > 0 ? '↑' : '' }} {{ c.growth }}% за период</span
+                >
+                <span class="muted small">сумма последствий активных рисков</span>
+              </div>
+              <div class="chart">
+                <div class="chart__ticks muted xs">
+                  @for (t of c.ticks; track $index) {
+                    <span>{{ t }}</span>
+                  }
+                </div>
+                <div class="chart__plot">
+                  <svg
+                    viewBox="0 0 600 220"
+                    preserveAspectRatio="none"
+                    role="img"
+                    [attr.aria-label]="'Сумма последствий: ' + million(d.sum.total)"
+                  >
+                    <defs>
+                      <linearGradient id="sumFill" x1="0" x2="0" y1="0" y2="1">
+                        <stop offset="0" stop-color="var(--chart)" stop-opacity="0.4" />
+                        <stop offset="1" stop-color="var(--chart)" stop-opacity="0" />
+                      </linearGradient>
+                    </defs>
+                    <path [attr.d]="c.area" fill="url(#sumFill)" />
+                    <path
+                      [attr.d]="c.line"
+                      fill="none"
+                      stroke="var(--chart)"
+                      stroke-width="2.5"
+                      vector-effect="non-scaling-stroke"
+                    />
+                  </svg>
+                  <span class="chart__dot" [style.top]="c.lastTop" aria-hidden="true"></span>
+                </div>
+                <span></span>
+                <div class="chart__labels muted xs">
+                  @for (l of c.labels; track $index) {
+                    <span>{{ l }}</span>
+                  }
+                </div>
+              </div>
+            }
+          }
+          @case ('dirs') {
+            @if (dirData(); as x) {
+              <div class="dirs">
+                <div
+                  class="donut"
+                  role="img"
+                  [attr.aria-label]="'Всего ' + x.total + ' рисков'"
+                  [style.background]="x.donut"
+                >
+                  <div class="donut__hole">
+                    <span class="muted xs">Всего</span>
+                    <span class="donut__n">{{ x.total }}</span>
+                    <span class="muted xs">{{ million(x.loss) }}</span>
+                  </div>
+                </div>
+                <div class="dirs__legend">
+                  @for (s of statuses; track s) {
+                    <div class="legend-tile">
+                      <span class="tile__label"
+                        ><i class="sdot" [attr.data-status]="s"></i>{{ statusNames[s] }}</span
+                      >
+                      <span class="legend-tile__n">{{ x.counts[s] }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+          @case ('top') {
+            <div class="tops">
+              @for (r of topVisible(); track r.id) {
+                <article
+                  class="topcard"
+                  [attr.data-level]="r.assessment ? level(r.assessment.score) : null"
+                >
+                  <div class="row">
+                    <ui-risk-status [status]="r.status" />
+                    <span class="tag">{{ r.id }}</span>
+                    @if (r.iso !== '—') {
+                      <span class="tag">ISO {{ r.iso }}</span>
+                    }
+                    <span class="grow"></span>
+                    <span class="muted xs">{{ date(r.createdAt) }}</span>
+                  </div>
+                  <a class="topcard__name" [routerLink]="['/risks', r.id]"
+                    >{{ r.name }} <ui-icon name="fire" [size]="13" class="fire"
+                  /></a>
+                  <p class="muted small clamp">{{ r.description }}</p>
+                  <div class="pair">
+                    <div>
+                      <span class="label">Процесс</span><span class="small">{{ r.process }}</span>
+                    </div>
+                    <div>
+                      <span class="label">Дирекция</span
+                      ><span class="small">{{ r.directorate }}</span>
+                    </div>
+                  </div>
+                  @if (r.assessment; as a) {
+                    <div class="inner">
+                      <div class="pair">
+                        <div>
+                          <span class="label">Вероятность</span
+                          ><span class="small"
+                            >{{ a.likelihood }} · {{ likelihoodNames[a.likelihood] }}</span
+                          >
+                        </div>
+                        <div>
+                          <span class="label">Тяжесть</span
+                          ><span class="small"
+                            >{{ a.impact }} · {{ impactNames[a.impact] }},
+                            {{ million(a.lossAmount) }}</span
+                          >
+                        </div>
+                      </div>
+                      <div class="formula">
+                        <span class="box">{{ a.likelihood }}</span
+                        >×<span class="box">{{ a.impact }}</span
+                        >=<span class="score">{{ a.score }}</span>
+                        <span class="level-text">{{ level(a.score) }}</span>
+                      </div>
+                    </div>
+                  } @else {
+                    <div class="inner row">
+                      <div class="grow">
+                        <div class="small strong">
+                          {{ r.status === 'DRAFT' ? 'Оценка не проведена' : 'Ждёт переоценки' }}
+                        </div>
+                        <div class="muted xs">Отмечен как топ-риск при создании</div>
+                      </div>
+                      <a class="btn btn--xs" [routerLink]="['/risks', r.id]">Оценить риск</a>
+                    </div>
+                  }
+                </article>
+              } @empty {
+                <p class="muted small">Топ-рисков нет.</p>
+              }
+            </div>
+          }
+          @case ('heat') {
+            <div
+              class="heat"
+              role="img"
+              aria-label="Тепловая карта рисков 5 × 5 по текущим оценкам"
+            >
+              <span class="axis-y" aria-hidden="true">Вероятность</span>
+              <div class="heat__grid">
+                @for (l of [5, 4, 3, 2, 1]; track l) {
+                  <span class="tick">{{ l }}</span>
+                  @for (i of [1, 2, 3, 4, 5]; track i) {
+                    @let n = d.heat[l - 1][i - 1];
+                    <span
+                      class="heat__cell"
+                      [style]="heatStyle(l, i, n)"
+                      [title]="
+                        'Вероятность ' +
+                        l +
+                        ' × тяжесть ' +
+                        i +
+                        ' = ' +
+                        l * i +
+                        ': ' +
+                        n +
+                        ' рисков'
+                      "
+                    >
+                      <span class="xs muted">R {{ l * i }}</span>
+                      <span class="heat__n">{{ n || '' }}</span>
+                    </span>
+                  }
+                }
+                <span></span>
+                @for (i of [1, 2, 3, 4, 5]; track i) {
+                  <span class="tick">{{ i }}</span>
+                }
+              </div>
+              <span class="axis-x" aria-hidden="true">Тяжесть</span>
+            </div>
+          }
+          @case ('levels') {
+            <div class="bubbles">
+              @for (lv of levels; track lv) {
+                <div class="bubble-wrap" [attr.data-level]="lv">
+                  <div
+                    class="bubble"
+                    [style.width.px]="bubbleSize(d.levels[lv])"
+                    [style.height.px]="bubbleSize(d.levels[lv])"
+                    [title]="lv + ': ' + d.levels[lv] + ' рисков'"
+                  >
+                    <span [style.font-size.px]="Math.max(26, bubbleSize(d.levels[lv]) * 0.34)">{{
+                      d.levels[lv]
+                    }}</span>
+                  </div>
+                  <span class="level-text"
+                    >{{ lv }}<br /><span class="muted xs">R {{ range(lv) }}</span></span
+                  >
+                </div>
+              }
+            </div>
+          }
+          @case ('kri') {
+            <div class="kri">
+              @for (x of d.kri; track x.name) {
+                <div class="kri__row" [attr.data-state]="x.state">
+                  <div class="small">{{ x.name }}</div>
+                  <div class="kri__vals">
+                    <span class="kri__value">{{ x.value }}</span>
+                    <span class="muted xs">порог {{ x.limit }}</span>
+                    <span class="kri__state">{{
+                      x.state === 'ok' ? 'норма' : x.state === 'warn' ? 'на грани' : 'превышен'
+                    }}</span>
+                  </div>
+                  <div class="kri__track"><div class="kri__bar" [style.width.%]="x.pct"></div></div>
+                </div>
+              }
+            </div>
+          }
+          @case ('mitig') {
+            @if (mitig(); as m) {
+              <div class="mitig">
+                <div
+                  class="ring"
+                  role="img"
+                  [attr.aria-label]="'Выполнено ' + m.pct + ' процентов мер'"
+                  [style.background]="m.ring"
+                >
+                  <div class="ring__hole">
+                    <span class="donut__n">{{ m.pct }}%</span
+                    ><span class="muted xs">выполнено</span>
+                  </div>
+                </div>
+                <div class="mitig__legend">
+                  @for (p of m.parts; track p.label) {
+                    <div class="small">
+                      <i class="pdot" [style.background]="p.color"></i>{{ p.label
+                      }}<span class="grow"></span><span class="strong">{{ p.n }}</span>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+          }
+          @case ('dyn') {
+            <div class="dyn">
+              <div class="dyn__legend small">
+                <span><i class="pdot pdot--solid"></i>Оценено</span>
+                <span><i class="pdot pdot--hatch"></i>Без оценки</span>
+              </div>
+              <div class="bars" role="img" aria-label="Новые риски по неделям">
+                @for (b of d.dynamics; track b.week) {
+                  <div
+                    class="bars__col"
+                    [title]="
+                      date(b.week) + ': выявлено ' + b.total + ', без оценки ' + b.unassessed
+                    "
+                  >
+                    <div class="bars__track">
+                      <div
+                        class="bars__hatch"
+                        [style.height.%]="(b.unassessed / dynMax()) * 100"
+                      ></div>
+                      <div
+                        class="bars__solid"
+                        [style.height.%]="((b.total - b.unassessed) / dynMax()) * 100"
+                      ></div>
+                    </div>
+                    <span class="muted xs">{{ date(b.week).slice(0, 5) }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+          @case ('appr') {
+            <div class="appr">
+              @for (a of d.approvals; track a.id) {
+                <a class="appr__row" routerLink="/measures" [queryParams]="{ tab: 'approvals' }">
+                  <span class="muted xs">{{ a.id }}</span>
+                  <span class="small clamp1">{{ a.title }}</span>
+                  <span class="small strong">{{ rub(a.cost) }}</span>
+                  <span class="level-chip" [attr.data-level]="a.level">{{ a.level }}</span>
+                  <span class="muted xs">{{ waitDays(a.sentAt) }}</span>
+                </a>
+              } @empty {
+                <p class="muted small">Ожидающих согласования мер нет.</p>
+              }
+            </div>
+          }
+        }
+      </section>
+    } @empty {
+      <section class="card empty widget--full">
+        <p class="muted">Все виджеты скрыты. Откройте «Настроить дашборд» и добавьте нужные.</p>
+      </section>
+    }
+  </div>
+} @else {
+  <section class="card empty muted" aria-busy="true">Загружаем дашборд…</section>
+}

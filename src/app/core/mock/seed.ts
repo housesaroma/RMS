@@ -41,7 +41,7 @@ function assessmentFor(row: Row, asset: string | null): Assessment {
     downtimeHours: hours,
     by: PROCESS.get(process)!.owner,
     byRole: 'Владелец процесса',
-    at: at(createdAt, '16:05'),
+    at: at(createdAt, '16:05', 3),
   };
 }
 
@@ -212,7 +212,7 @@ export function seedRisks(): RiskDetails[] {
     const proto = id === 'R-0142' ? R0142 : null;
     const author = proto?.author ?? 'Голубев А. И.';
     const created = at(createdAt, '09:40');
-    const modeAt = at(createdAt, '10:12', 3);
+    const modeAt = at(createdAt, '10:12', 5);
 
     const history: HistoryEvent[] = [
       {

@@ -379,3 +379,41 @@ export interface LoginResponse {
 export interface ApiError {
   message: string;
 }
+
+export type Period = 'week' | 'month' | 'quarter' | 'year';
+
+export interface DashboardData {
+  period: Period;
+  from: string;
+  to: string;
+  /** Per status, with the change over the period. */
+  statuses: { status: RiskStatus | 'all'; n: number; delta: number }[];
+  attention: {
+    top: number;
+    topCritical: number;
+    topUnassessed: number;
+    unassessed: number;
+    unassessedOld: number;
+    decision: number;
+    measuresActive: number;
+    measuresApproval: number;
+  };
+  /** Total loss of active risks by week. */
+  sum: { total: number; series: { date: string; value: number }[] };
+  directorates: { name: string; counts: Record<RiskStatus, number>; loss: number }[];
+  top: RiskDetails[];
+  /** heat[l-1][i-1] = number of current assessments in the cell. */
+  heat: number[][];
+  levels: Record<Level, number>;
+  kri: { name: string; value: string; limit: string; state: 'ok' | 'warn' | 'bad'; pct: number }[];
+  mitigation: Record<MeasureStatus, number>;
+  dynamics: { week: string; total: number; unassessed: number }[];
+  approvals: {
+    id: string;
+    title: string;
+    riskId: string;
+    cost: number;
+    level: ApprovalLevel;
+    sentAt: string;
+  }[];
+}

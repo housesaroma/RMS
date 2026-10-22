@@ -47,3 +47,15 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+@media print {
+  .side,
+  .hero .top,
+  .hero .actions,
+  .widget__head .toolbar {
+    display: none !important;
+  }
+  .layout {
+    padding: 0 !important;
+  }
+}

@@ -23,7 +23,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/shell/shell').then((m) => m.Shell),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
-      section('dashboard', 'Дашборд', [ROOT, 'Дашборд']),
+      {
+        path: 'dashboard',
+        title: 'Дашборд · СУР',
+        loadComponent: () => import('./features/dashboard/dashboard').then((m) => m.Dashboard),
+      },
       {
         path: 'risks',
         title: 'Реестр рисков · СУР',
