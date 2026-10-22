@@ -5,9 +5,9 @@ import { ThemeService } from './core/theme';
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
-  templateUrl: './app.html',
-  styleUrl: './app.scss',
+  template: '<router-outlet />',
 })
 export class App {
-  protected readonly theme = inject(ThemeService);
+  // Created eagerly so the theme effect runs from the first screen.
+  private readonly theme = inject(ThemeService);
 }

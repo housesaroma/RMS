@@ -9,7 +9,9 @@ export class ThemeService {
   private readonly doc = inject(DOCUMENT);
 
   // index.html applies the stored theme before bootstrap, so start from the attribute.
-  readonly theme = signal<Theme>(this.doc.documentElement.dataset['theme'] === 'glass' ? 'glass' : 'dark');
+  readonly theme = signal<Theme>(
+    this.doc.documentElement.dataset['theme'] === 'glass' ? 'glass' : 'dark',
+  );
 
   constructor() {
     effect(() => {

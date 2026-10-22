@@ -1,0 +1,41 @@
+<header class="hero">
+  <div class="top">
+    <nav class="crumbs" aria-label="Навигационная цепочка">
+      <ui-icon name="home" [size]="16" />
+      @for (c of crumbs(); track $index) {
+        <span aria-hidden="true">/</span><span>{{ c }}</span>
+      }
+    </nav>
+    <span class="grow"></span>
+    <form class="search soft" role="search" (submit)="search($event, q.value)">
+      <ui-icon name="search" [size]="18" />
+      <label class="sr-only" for="global-search">Поиск</label>
+      <input #q id="global-search" type="search" placeholder="Поиск рисков, мер, ID" />
+    </form>
+    @if (user(); as u) {
+      <div class="me soft">
+        <span class="avatar avatar--sm">{{ initials() }}</span>
+        <span class="me__text">
+          <span>{{ shortName() }}</span>
+          <span class="muted">{{ caption() }}</span>
+        </span>
+        <button
+          type="button"
+          class="icon-btn icon-btn--bare me__out"
+          aria-label="Выйти"
+          title="Выйти"
+          (click)="logout()"
+        >
+          <ui-icon name="logout" [size]="18" />
+        </button>
+      </div>
+    }
+  </div>
+  <div class="title">
+    <h1>{{ title() }}</h1>
+    @if (subtitle()) {
+      <p class="muted">{{ subtitle() }}</p>
+    }
+  </div>
+  <div class="actions"><ng-content /></div>
+</header>

@@ -1,0 +1,36 @@
+<div class="layout">
+  <nav class="side" aria-label="Главное меню">
+    <a class="logo" routerLink="/dashboard" aria-label="СУР, на главную"
+      ><ui-icon name="shield" [size]="22"
+    /></a>
+    @for (item of nav(); track item.path) {
+      <a
+        class="icon-btn nav-link"
+        [routerLink]="item.path"
+        routerLinkActive="is-active"
+        ariaCurrentWhenActive="page"
+        [attr.aria-label]="item.label"
+        [title]="item.label"
+      >
+        <ui-icon [name]="item.icon" />
+      </a>
+    }
+    <span class="spacer"></span>
+    <button
+      type="button"
+      class="icon-btn nav-link"
+      [attr.aria-label]="
+        theme.theme() === 'dark' ? 'Включить стеклянную тему' : 'Включить тёмную тему'
+      "
+      [title]="theme.theme() === 'dark' ? 'Включить стеклянную тему' : 'Включить тёмную тему'"
+      (click)="theme.toggle()"
+    >
+      <ui-icon name="moon" />
+    </button>
+    <span class="avatar" [title]="user()?.fullName ?? ''">{{ initials() }}</span>
+  </nav>
+
+  <main class="content">
+    <router-outlet />
+  </main>
+</div>
