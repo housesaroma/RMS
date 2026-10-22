@@ -7,7 +7,7 @@
       }
     </nav>
     <span class="grow"></span>
-    <form class="search soft" role="search" (submit)="search($event, q.value)">
+    <form class="search soft" role="search" (submit)="search($event, q.value); q.value = ''">
       <ui-icon name="search" [size]="18" />
       <label class="sr-only" for="global-search">Поиск</label>
       <input #q id="global-search" type="search" placeholder="Поиск рисков, мер, ID" />

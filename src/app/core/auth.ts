@@ -3,7 +3,7 @@ import { Service, computed, inject, signal } from '@angular/core';
 import { CanMatchFn, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API } from './api';
-import { LoginResponse, Role, User } from './models';
+import { LoginResponse, Right, Role, User } from './models';
 
 const KEY = 'rms.token';
 
@@ -34,6 +34,12 @@ export class AuthService {
 
   hasRole(role: Role): boolean {
     return this.user()?.roles.includes(role) ?? false;
+  }
+
+  /** `admin` covers every business right. */
+  can(right: Right): boolean {
+    const rights = this.user()?.rights ?? [];
+    return rights.includes(right) || rights.includes('admin');
   }
 
   /** Restores the session on startup; a stale token is dropped silently. */

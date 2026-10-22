@@ -101,6 +101,32 @@
   --chart: #ff7a47;
   --track: rgba(255, 255, 255, 0.05);
 
+  --cta-bg: #ff7a47;
+  --cta-fg: #1a1a1a;
+  --tab-on-bg: #f1f1f1;
+  --tab-on-fg: #1a1a1a;
+  --tab-on-muted: #5c5c5c;
+  --row-hover: rgba(128, 128, 128, 0.08);
+  --row-sel: rgba(102, 255, 76, 0.07);
+  --row-new: rgba(255, 122, 71, 0.1);
+  --track-on: #66ff4c;
+  --track-off: rgba(255, 255, 255, 0.18);
+  --knob-on: #1a1a1a;
+  --knob-off: #f1f1f1;
+  --overlay-bg: rgba(12, 12, 12, 0.62);
+  --modal-bg: rgba(44, 44, 44, 0.74);
+  --modal-border: rgba(255, 255, 255, 0.14);
+  --modal-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  --hint-bg: rgba(126, 109, 230, 0.18);
+  --hint-fg: #dad4ff;
+  --menu-shadow: 0 14px 36px rgba(0, 0, 0, 0.3);
+  --fire: #ff6b7a;
+
+  --dot-draft: #8c8c8c;
+  --dot-active: #f1f1f1;
+  --dot-review: #ffd84d;
+  --dot-accepted: #66ff4c;
+
   // Acceptance levels by R = L × I
   --lv-owner: #66ff4c;
   --lv-owner-text: #66ff4c;
@@ -209,6 +235,32 @@
   --flat: #4a453f;
   --chart: #111111;
   --track: rgba(17, 17, 17, 0.06);
+
+  --cta-bg: #ff7a47;
+  --cta-fg: #1a1a1a;
+  --tab-on-bg: #111111;
+  --tab-on-fg: #ffffff;
+  --tab-on-muted: rgba(255, 255, 255, 0.72);
+  --row-hover: rgba(255, 255, 255, 0.3);
+  --row-sel: rgba(255, 255, 255, 0.5);
+  --row-new: rgba(247, 195, 163, 0.5);
+  --track-on: #111111;
+  --track-off: rgba(17, 17, 17, 0.18);
+  --knob-on: #ffef9e;
+  --knob-off: #ffffff;
+  --overlay-bg: rgba(70, 52, 30, 0.3);
+  --modal-bg: rgba(255, 255, 255, 0.64);
+  --modal-border: rgba(255, 255, 255, 0.9);
+  --modal-shadow: 0 30px 80px rgba(90, 64, 30, 0.28);
+  --hint-bg: rgba(255, 239, 158, 0.75);
+  --hint-fg: #4a3b00;
+  --menu-shadow: 0 14px 36px rgba(90, 64, 30, 0.2);
+  --fire: #8e1f2c;
+
+  --dot-draft: #ffffff;
+  --dot-active: #111111;
+  --dot-review: #e0b400;
+  --dot-accepted: #3fa34d;
 
   --lv-owner: #baebb6;
   --lv-owner-text: #23602b;

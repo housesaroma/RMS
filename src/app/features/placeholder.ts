@@ -12,6 +12,9 @@ import { PageHeader } from '../ui/page-header';
     </section>
   `,
   styles: `
+    :host {
+      display: contents;
+    }
     .empty {
       padding: 48px 28px;
       text-align: center;

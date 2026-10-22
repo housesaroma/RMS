@@ -24,7 +24,12 @@ export const routes: Routes = [
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       section('dashboard', 'Дашборд', [ROOT, 'Дашборд']),
-      section('risks', 'Реестр рисков', ['Риски']),
+      {
+        path: 'risks',
+        title: 'Реестр рисков · СУР',
+        loadComponent: () => import('./features/risks/risks').then((m) => m.Risks),
+      },
+      section('risks/:id', 'Карточка риска', [ROOT, 'Риски', 'Карточка риска']),
       section('archive', 'Архив', [ROOT, 'Архив']),
       { ...section('settings', 'Настройки', [ROOT, 'Настройки']), canMatch: [roleGuard('ADMIN')] },
     ],

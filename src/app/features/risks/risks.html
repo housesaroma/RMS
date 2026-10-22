@@ -1,0 +1,407 @@
+<ui-page-header
+  title="Реестр рисков"
+  [crumbs]="['Система управления рисками', 'Риски']"
+  [subtitle]="subtitle()"
+>
+  <span class="grow"></span>
+  <button type="button" class="btn btn--soft btn--sm" (click)="exportRisks()">
+    <ui-icon name="download" [size]="18" />Скачать
+  </button>
+  @if (auth.can('create_risk')) {
+    <button
+      type="button"
+      class="btn btn--cta btn--sm"
+      aria-haspopup="dialog"
+      (click)="openCreate()"
+    >
+      <ui-icon name="plus" [size]="18" />Добавить риск
+    </button>
+  }
+</ui-page-header>
+
+<section class="card registry" aria-label="Реестр рисков">
+  <div class="row">
+    <div class="tabs" role="tablist" aria-label="Статус риска">
+      @for (t of tabs; track t.key) {
+        <button
+          type="button"
+          role="tab"
+          class="pill"
+          [attr.aria-selected]="(tab() ?? 'all') === t.key"
+          (click)="setTab(t.key)"
+        >
+          @if (t.key !== 'all') {
+            <span class="dot" [attr.data-status]="t.key"></span>
+          }
+          {{ t.name }}
+          <span class="pill__count">{{ data()?.counts?.[t.key] ?? '' }}</span>
+        </button>
+      }
+      <span class="divider" aria-hidden="true"></span>
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="tab() === 'top'"
+        (click)="setTab('top')"
+      >
+        <ui-icon name="fire" [size]="15" class="fire" />Топ-риски
+        <span class="pill__count">{{ data()?.counts?.top ?? '' }}</span>
+      </button>
+    </div>
+    <span class="grow"></span>
+    <button
+      type="button"
+      role="switch"
+      class="switch"
+      [attr.aria-checked]="query().ceo"
+      (click)="patch({ ceo: query().ceo ? null : 'true' })"
+    >
+      <span class="switch__track" aria-hidden="true"></span>
+      Риски уровня CEO и выше
+      <span class="muted small">R ≥ {{ thresholds().director + 1 }}</span>
+    </button>
+  </div>
+
+  <div class="row filters">
+    <label class="input search">
+      <ui-icon name="search" [size]="18" />
+      <span class="sr-only">Поиск по названию и ID риска</span>
+      <input
+        type="search"
+        placeholder="Название или ID риска"
+        [value]="search()"
+        (input)="setSearch($any($event.target).value)"
+      />
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Дирекция</span>
+      <select
+        class="input"
+        [value]="query().directorate"
+        (change)="patch({ directorate: $any($event.target).value || null })"
+      >
+        <option value="">Все дирекции</option>
+        @for (d of dict.value()?.directorates; track d) {
+          <option [value]="d">{{ d }}</option>
+        }
+      </select>
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Категория</span>
+      <select
+        class="input"
+        [value]="query().category"
+        (change)="patch({ category: $any($event.target).value || null })"
+      >
+        <option value="">Все категории</option>
+        @for (c of dict.value()?.categories; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Владелец процесса</span>
+      <select
+        class="input"
+        [value]="query().owner"
+        (change)="patch({ owner: $any($event.target).value || null })"
+      >
+        <option value="">Все владельцы</option>
+        @for (o of owners(); track o) {
+          <option [value]="o">{{ o }}</option>
+        }
+      </select>
+    </label>
+    <fieldset class="input period">
+      <legend class="sr-only">Период создания</legend>
+      <ui-icon name="calendar" [size]="18" />
+      <label
+        ><span class="sr-only">Создан с</span>
+        <input
+          type="date"
+          [value]="query().from"
+          [max]="query().to || null"
+          (change)="patch({ from: $any($event.target).value || null })"
+        />
+      </label>
+      <span aria-hidden="true">—</span>
+      <label
+        ><span class="sr-only">Создан по</span>
+        <input
+          type="date"
+          [value]="query().to"
+          [min]="query().from || null"
+          (change)="patch({ to: $any($event.target).value || null })"
+        />
+      </label>
+    </fieldset>
+    <button type="button" class="btn btn--chip btn--xs" [disabled]="!filtered()" (click)="reset()">
+      <ui-icon name="close" [size]="14" />Сбросить фильтры
+    </button>
+  </div>
+
+  @if (notice()) {
+    <div class="note note--hint" role="status">
+      <ui-icon name="info" [size]="18" />
+      <span class="grow">{{ notice() }}</span>
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set('')"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+
+  @if (closedTab()) {
+    <div class="empty">
+      <span class="empty__icon" aria-hidden="true"><ui-icon name="archive" [size]="24" /></span>
+      <div class="empty__title">Закрытые риски собраны в архиве</div>
+      <p class="muted">
+        В реестре {{ data()?.counts?.CLOSED }} закрытых рисков. Их карточки, причины закрытия и
+        историю оценок смотрите в разделе «Архив».
+      </p>
+      <a class="btn btn--sm" routerLink="/archive">Открыть архив</a>
+    </div>
+  } @else {
+    <div class="row selection">
+      @if (selected().length) {
+        <span class="strong">Выбрано: {{ selected().length }}</span>
+        <button type="button" class="btn btn--ghost btn--xs" (click)="exportRisks(selected())">
+          Экспорт
+        </button>
+        <button
+          type="button"
+          class="icon-btn btn--chip clear"
+          aria-label="Снять выделение"
+          (click)="selected.set([])"
+        >
+          <ui-icon name="close" [size]="14" />
+        </button>
+      } @else {
+        <span class="muted small">Отметьте риски, чтобы выгрузить их</span>
+      }
+      <span class="grow"></span>
+      <span class="muted small">
+        Сортировка:
+        {{
+          query().sort === 'desc'
+            ? 'оценка по убыванию'
+            : query().sort === 'asc'
+              ? 'оценка по возрастанию'
+              : 'по ID, новые сверху'
+        }}
+      </span>
+    </div>
+
+    @if (list.error() && !data()) {
+      <div class="empty" role="alert">
+        <div class="empty__title">Не удалось загрузить риски. Повторите попытку</div>
+        <button type="button" class="btn btn--sm" (click)="list.reload()">Повторить</button>
+      </div>
+    } @else if (data(); as d) {
+      @if (d.items.length) {
+        <div class="scroll" [class.loading]="list.isLoading()">
+          <table aria-label="Реестр рисков" [attr.aria-busy]="list.isLoading()">
+            <colgroup>
+              <col style="width: 36px" />
+              <col style="width: 60px" />
+              <col style="width: 46px" />
+              <col />
+              <col style="width: 150px" />
+              <col style="width: 128px" />
+              <col style="width: 116px" />
+              <col style="width: 84px" />
+              <col style="width: 136px" />
+              <col style="width: 168px" />
+              <col style="width: 40px" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">
+                  <input
+                    type="checkbox"
+                    [checked]="allPicked()"
+                    (change)="toggleAll()"
+                    aria-label="Выбрать все риски на странице"
+                  />
+                </th>
+                <th scope="col">ID</th>
+                <th scope="col">ISO</th>
+                <th scope="col">Название риска</th>
+                <th scope="col">Дирекция / процесс</th>
+                <th scope="col">Категория</th>
+                <th scope="col">Владелец процесса</th>
+                <th scope="col">Создан</th>
+                <th
+                  scope="col"
+                  [attr.aria-sort]="
+                    query().sort === 'desc'
+                      ? 'descending'
+                      : query().sort === 'asc'
+                        ? 'ascending'
+                        : 'none'
+                  "
+                >
+                  <button
+                    type="button"
+                    class="sort"
+                    [class.on]="query().sort"
+                    (click)="toggleSort()"
+                  >
+                    Оценка
+                    <ui-icon
+                      [name]="
+                        query().sort === 'desc'
+                          ? 'sort-desc'
+                          : query().sort === 'asc'
+                            ? 'sort-asc'
+                            : 'sort'
+                      "
+                      [size]="13"
+                    />
+                  </button>
+                </th>
+                <th scope="col">Статус</th>
+                <th scope="col"><span class="sr-only">Действия</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of d.items; track r.id) {
+                <tr [class.picked]="selected().includes(r.id)" [class.fresh]="r.id === freshId()">
+                  <td>
+                    <input
+                      type="checkbox"
+                      [checked]="selected().includes(r.id)"
+                      (change)="toggle(r.id)"
+                      [attr.aria-label]="'Выбрать ' + r.id"
+                    />
+                  </td>
+                  <td class="muted small">{{ r.id }}</td>
+                  <td class="muted small">{{ r.iso }}</td>
+                  <td>
+                    <span class="name">
+                      <a class="link" [routerLink]="['/risks', r.id]">{{ r.name }}</a>
+                      @if (r.top) {
+                        <ui-icon
+                          name="fire"
+                          [size]="14"
+                          class="fire"
+                          role="img"
+                          aria-label="Топ-риск"
+                        />
+                      }
+                    </span>
+                    <span class="muted xs block">{{ r.hazard }}</span>
+                  </td>
+                  <td>
+                    <span class="block">{{ r.directorate }}</span>
+                    <span class="muted xs block">{{ r.process }}</span>
+                  </td>
+                  <td class="small">{{ r.category }}</td>
+                  <td class="small">{{ r.owner }}</td>
+                  <td class="muted small">{{ r.createdAt.split('-').reverse().join('.') }}</td>
+                  <td>
+                    <ui-risk-score
+                      [likelihood]="r.likelihood"
+                      [impact]="r.impact"
+                      [status]="r.status"
+                      [thresholds]="thresholds()"
+                    />
+                  </td>
+                  <td><ui-risk-status [status]="r.status" /></td>
+                  <td class="actions">
+                    <button
+                      type="button"
+                      class="icon-btn icon-btn--bare"
+                      [attr.aria-label]="'Действия с риском ' + r.id"
+                      [cdkMenuTriggerFor]="rowMenu"
+                      [cdkMenuTriggerData]="{ $implicit: r }"
+                    >
+                      <ui-icon name="more" [size]="18" />
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty">
+          <span class="empty__icon" aria-hidden="true"><ui-icon name="search" [size]="24" /></span>
+          @if (filtered()) {
+            <div class="empty__title">Ничего не найдено</div>
+            <p class="muted">
+              По заданным условиям рисков нет. Измените запрос, статус или сбросьте фильтры.
+            </p>
+            <button type="button" class="btn btn--sm" (click)="reset()">Сбросить фильтры</button>
+          } @else {
+            <div class="empty__title">Риски не найдены</div>
+          }
+        </div>
+      }
+
+      @if (pages().length > 1 || range()) {
+        <div class="row pager">
+          <span class="muted">{{ range() }}</span>
+          @if (pages().length > 1) {
+            <nav aria-label="Страницы реестра" class="pages">
+              <button
+                type="button"
+                class="icon-btn btn--ghost page"
+                aria-label="Предыдущая страница"
+                [disabled]="query().page <= 1"
+                (click)="patch({ page: '' + (query().page - 1) }, true)"
+              >
+                <ui-icon name="chevron-left" [size]="16" />
+              </button>
+              @for (p of pages(); track $index) {
+                @if (p === null) {
+                  <span aria-hidden="true">…</span>
+                } @else {
+                  <button
+                    type="button"
+                    class="page"
+                    [class.current]="p === query().page"
+                    [attr.aria-current]="p === query().page ? 'page' : null"
+                    (click)="patch({ page: p === 1 ? null : '' + p }, true)"
+                  >
+                    {{ p }}
+                  </button>
+                }
+              }
+              <button
+                type="button"
+                class="icon-btn btn--ghost page"
+                aria-label="Следующая страница"
+                [disabled]="query().page >= lastPage()"
+                (click)="patch({ page: '' + (query().page + 1) }, true)"
+              >
+                <ui-icon name="chevron-right" [size]="16" />
+              </button>
+            </nav>
+          }
+        </div>
+      }
+    } @else {
+      <div class="empty muted" aria-busy="true">Загружаем реестр…</div>
+    }
+  }
+</section>
+
+<ng-template #rowMenu let-r>
+  <div class="menu" cdkMenu>
+    <a class="menu__item" cdkMenuItem [routerLink]="['/risks', r.id]">Открыть карточку</a>
+    <button
+      type="button"
+      class="menu__item"
+      cdkMenuItem
+      (cdkMenuItemTriggered)="exportRisks([r.id])"
+    >
+      Экспорт
+    </button>
+  </div>
+</ng-template>

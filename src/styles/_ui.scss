@@ -197,3 +197,202 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+.btn--cta {
+  background: var(--cta-bg);
+  color: var(--cta-fg);
+  font-weight: 600;
+}
+
+// Translucent button for the page hero.
+.btn--soft {
+  background: var(--hero-soft-bg);
+  color: var(--hero-fg);
+  border: 1px solid var(--hero-soft-border);
+}
+
+.btn--chip {
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+}
+
+textarea.input {
+  height: auto;
+  min-height: 84px;
+  padding: 10px 14px;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+// Native select with a drawn chevron: wrap it in <span class="select">.
+.select {
+  position: relative;
+  display: flex;
+
+  select {
+    appearance: none;
+    padding-right: 38px;
+    cursor: pointer;
+  }
+
+  option {
+    color: #111111;
+    background: #ffffff;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -6px;
+    border-right: 1.6px solid currentColor;
+    border-bottom: 1.6px solid currentColor;
+    transform: rotate(45deg);
+    pointer-events: none;
+    opacity: 0.8;
+  }
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-md);
+  cursor: pointer;
+
+  &__track {
+    position: relative;
+    flex-shrink: 0;
+    width: 42px;
+    height: 26px;
+    border-radius: var(--r-pill);
+    background: var(--track-off);
+    transition: background 0.15s ease;
+  }
+
+  &__track::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--knob-off);
+    transition: transform 0.15s ease;
+  }
+
+  &[aria-checked='true'] .switch__track {
+    background: var(--track-on);
+  }
+
+  &[aria-checked='true'] .switch__track::after {
+    background: var(--knob-on);
+    transform: translateX(16px);
+  }
+}
+
+// Pill tabs and filter chips.
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--ctl-sm);
+  padding: 0 14px;
+  border-radius: var(--r-pill);
+  background: var(--ghost-bg);
+  color: var(--ghost-fg);
+  border: 1px solid var(--ghost-border);
+  font-size: var(--fs-md);
+  cursor: pointer;
+
+  &__count {
+    color: var(--muted);
+  }
+
+  &[aria-selected='true'] {
+    background: var(--tab-on-bg);
+    color: var(--tab-on-fg);
+    border-color: var(--tab-on-bg);
+
+    .pill__count {
+      color: var(--tab-on-muted);
+    }
+  }
+}
+
+// CDK menu panel.
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 200px;
+  padding: 6px;
+  border-radius: var(--r-lg);
+  background: var(--menu-bg);
+  color: var(--menu-fg);
+  border: 1px solid var(--menu-border);
+  box-shadow: var(--menu-shadow);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    height: 38px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: inherit;
+    font-size: var(--fs-md);
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+
+    &:hover,
+    &:focus-visible {
+      background: var(--chip-bg);
+      outline: none;
+    }
+  }
+}
+
+// CDK dialog: backdrop and panel.
+.dialog-backdrop {
+  background: var(--overlay-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.dialog {
+  width: 100%;
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border-radius: var(--r-xl);
+  background: var(--modal-bg);
+  border: 1px solid var(--modal-border);
+  box-shadow: var(--modal-shadow);
+  color: var(--text);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+}
+
+.note--hint {
+  background: var(--hint-bg);
+  color: var(--hint-fg);
+  font-size: var(--fs-md);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.btn--xs {
+  height: 32px;
+  padding: 0 14px;
+  font-size: var(--fs-sm);
+}

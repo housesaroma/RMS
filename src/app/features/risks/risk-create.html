@@ -1,0 +1,138 @@
+<div class="dialog body">
+  <div class="head">
+    <div class="grow">
+      <h2 id="nr-title">Новый риск</h2>
+      <p class="muted lead">
+        Заполните паспорт риска. Он будет создан в статусе <ui-risk-status status="DRAFT" />
+      </p>
+    </div>
+    <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
+      <ui-icon name="close" [size]="16" />
+    </button>
+  </div>
+
+  <form [formRoot]="f" class="form">
+    <label class="field">
+      <span class="muted">Название риска *</span>
+      <input
+        class="input"
+        type="text"
+        placeholder="Например, пожар в серверной офиса"
+        [formField]="f.name"
+      />
+      @if (errorOf(f.name()); as e) {
+        <span class="field__error">{{ e }}</span>
+      }
+    </label>
+
+    <label class="field">
+      <span class="muted">Описание *</span>
+      <textarea
+        class="input"
+        rows="3"
+        placeholder="Что может произойти, где и почему"
+        [formField]="f.description"
+      ></textarea>
+      @if (errorOf(f.description()); as e) {
+        <span class="field__error">{{ e }}</span>
+      }
+    </label>
+
+    <div class="grid">
+      <label class="field">
+        <span class="muted">Опасность *</span>
+        <span class="select">
+          <select class="input" [formField]="f.hazard">
+            <option value="">Выберите опасность</option>
+            @for (h of dict.value()?.hazards; track h) {
+              <option [value]="h">{{ h }}</option>
+            }
+          </select>
+        </span>
+        @if (errorOf(f.hazard()); as e) {
+          <span class="field__error">{{ e }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="muted">Категория риска *</span>
+        <span class="select">
+          <select class="input" [formField]="f.category">
+            <option value="">Выберите категорию</option>
+            @for (c of dict.value()?.categories; track c) {
+              <option [value]="c">{{ c }}</option>
+            }
+          </select>
+        </span>
+        @if (errorOf(f.category()); as e) {
+          <span class="field__error">{{ e }}</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="muted">Процесс *</span>
+        <span class="select">
+          <select class="input" [formField]="f.process">
+            <option value="">Выберите процесс</option>
+            @for (p of processes(); track p.name) {
+              <option [value]="p.name">{{ p.name }} · {{ p.directorate }}</option>
+            }
+          </select>
+        </span>
+        @if (errorOf(f.process()); as e) {
+          <span class="field__error">{{ e }}</span>
+        } @else if (dict.hasValue() && !processes().length) {
+          <span class="field__error">Вы не привязаны к дирекции. Обратитесь к администратору.</span>
+        }
+      </label>
+
+      <label class="field">
+        <span class="muted">Объект (необязательно)</span>
+        <span class="select">
+          <select class="input" [formField]="f.asset">
+            <option value="">Не указан</option>
+            @for (a of dict.value()?.assets; track a.name) {
+              <option [value]="a.name">
+                {{ a.name }} · {{ a.hourlyDowntimeCost.toLocaleString('ru-RU') }} ₽/ч простоя
+              </option>
+            }
+          </select>
+        </span>
+      </label>
+
+      <div class="field">
+        <span class="muted">Дирекция</span>
+        <div class="readout" [class.muted]="!process()">
+          {{ process()?.directorate ?? 'Подставится по процессу' }}
+        </div>
+      </div>
+      <div class="field">
+        <span class="muted">Владелец процесса</span>
+        <div class="readout" [class.muted]="!process()">
+          {{ process()?.owner ?? 'Подставится по процессу' }}
+        </div>
+      </div>
+    </div>
+
+    <label class="check top">
+      <input type="checkbox" [formField]="f.top" />Топ-риск
+      <span class="muted small">попадёт во вкладку «Топ-риски» и на дашборд</span>
+    </label>
+
+    <div class="note note--hint">
+      <ui-icon name="info" [size]="18" />
+      <span>Оценку проведёт владелец процесса: сотрудник оценку не заполняет.</span>
+    </div>
+
+    @if (error()) {
+      <div class="field__error strong" role="alert">{{ error() }}</div>
+    }
+
+    <div class="buttons">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="reset()">Сбросить</button>
+      <button type="submit" class="btn btn--cta btn--sm" [disabled]="f().submitting()">
+        {{ f().submitting() ? 'Создаём…' : 'Создать' }}
+      </button>
+    </div>
+  </form>
+</div>

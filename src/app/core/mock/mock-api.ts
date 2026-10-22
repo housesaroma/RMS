@@ -7,10 +7,26 @@ import {
 } from '@angular/common/http';
 import { Observable, delay, of, throwError } from 'rxjs';
 import { API } from '../api';
-import { LoginResponse } from '../models';
-import { DEMO_PASSWORD, USERS } from './db';
+import { LoginResponse, NewRisk, Risk } from '../models';
+import { DEMO_PASSWORD, DICTIONARIES, RISKS, USERS } from './db';
+import { createRisk, filterRisks, pageRisks, parseQuery, toCsv, validateNewRisk } from './risks';
 
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
+
+// Risks created in the demo survive a page reload.
+const STORE = 'rms.mock.risks';
+const risks: Risk[] = (() => {
+  try {
+    return [...(JSON.parse(localStorage.getItem(STORE) ?? '[]') as Risk[]), ...RISKS];
+  } catch {
+    return [...RISKS];
+  }
+})();
+const saveCreated = () => {
+  try {
+    localStorage.setItem(STORE, JSON.stringify(risks.slice(0, risks.length - RISKS.length)));
+  } catch {}
+};
 
 const fail = (status: number, message: string) => {
   throw new HttpErrorResponse({ status, statusText: message, error: { message } });
@@ -36,6 +52,37 @@ const routes: [string, RegExp, Handler][] = [
   ],
   ['GET', /^auth\/me$/, (req) => userFromToken(req)],
   ['POST', /^auth\/logout$/, () => null],
+  ['GET', /^dictionaries$/, (req) => (userFromToken(req), DICTIONARIES)],
+  [
+    'GET',
+    /^risks$/,
+    (req) => (userFromToken(req), pageRisks(risks, parseQuery(req.params), DICTIONARIES)),
+  ],
+  [
+    'GET',
+    /^risks\/export$/,
+    (req) => {
+      userFromToken(req);
+      const ids = req.params.get('ids')?.split(',');
+      const list = ids
+        ? risks.filter((r) => ids.includes(r.id))
+        : filterRisks(risks, parseQuery(req.params), DICTIONARIES);
+      return new Blob([toCsv(list)], { type: 'text/csv;charset=utf-8' });
+    },
+  ],
+  [
+    'POST',
+    /^risks$/,
+    (req) => {
+      const body = req.body as NewRisk;
+      const error = validateNewRisk(body, userFromToken(req), DICTIONARIES);
+      if (error) return fail(422, error);
+      const risk = createRisk(risks, body, DICTIONARIES, new Date().toISOString().slice(0, 10));
+      risks.unshift(risk);
+      saveCreated();
+      return risk;
+    },
+  ],
 ];
 
 // ponytail: in-memory backend until the real API is reachable; drop it from app.config then.
@@ -47,7 +94,8 @@ export const mockApi: HttpInterceptorFn = (req, next): Observable<HttpEvent<unkn
     const match = method === req.method && pattern.exec(path);
     if (!match) continue;
     try {
-      const body = structuredClone(handler(req, match.slice(1)));
+      const result = handler(req, match.slice(1));
+      const body = result instanceof Blob ? result : structuredClone(result);
       return of(new HttpResponse({ status: 200, body })).pipe(delay(350));
     } catch (e) {
       return throwError(() => e).pipe(delay(350));

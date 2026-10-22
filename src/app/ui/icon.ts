@@ -14,7 +14,18 @@ export type IconName =
   | 'eye-off'
   | 'info'
   | 'error'
-  | 'arrow-right';
+  | 'arrow-right'
+  | 'download'
+  | 'plus'
+  | 'close'
+  | 'calendar'
+  | 'chevron-left'
+  | 'chevron-right'
+  | 'sort'
+  | 'sort-asc'
+  | 'sort-desc'
+  | 'more'
+  | 'fire';
 
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */
 @Component({
