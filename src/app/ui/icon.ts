@@ -31,6 +31,7 @@ export type IconName =
   | 'tasks'
   | 'check'
   | 'edit'
+  | 'chart'
   | 'grip';
 
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */

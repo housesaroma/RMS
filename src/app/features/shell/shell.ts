@@ -3,7 +3,7 @@ import { Component, computed, inject } from '@angular/core';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 import { API } from '../../core/api';
-import { ApprovalsPage } from '../../core/models';
+import { ApprovalsPage, Right } from '../../core/models';
 import { RisksApi } from '../../core/risks-api';
 import { AuthService } from '../../core/auth';
 import { ThemeService } from '../../core/theme';
@@ -15,12 +15,14 @@ interface NavItem {
   label: string;
   icon: IconName;
   adminOnly?: boolean;
+  right?: Right;
 }
 
 const NAV: NavItem[] = [
   { path: '/dashboard', label: 'Дашборд', icon: 'grid' },
   { path: '/risks', label: 'Риски', icon: 'alert' },
   { path: '/measures', label: 'Меры и согласования', icon: 'tasks' },
+  { path: '/reports', label: 'Отчёты', icon: 'chart', right: 'view_report' },
   { path: '/archive', label: 'Архив', icon: 'archive' },
   { path: '/settings', label: 'Настройки', icon: 'sliders', adminOnly: true },
 ];
@@ -36,7 +38,13 @@ export class Shell {
   private readonly api = inject(RisksApi);
   protected readonly theme = inject(ThemeService);
 
-  protected readonly nav = computed(() => NAV.filter((n) => !n.adminOnly || this.auth.isAdmin()));
+  protected readonly nav = computed(() =>
+    NAV.filter(
+      (n) =>
+        (!n.adminOnly || this.auth.isAdmin()) &&
+        (!n.right || this.auth.can(n.right) || this.auth.isAdmin()),
+    ),
+  );
   protected readonly user = this.auth.user;
   protected readonly initials = computed(() => initials(this.user()?.fullName ?? ''));
 
