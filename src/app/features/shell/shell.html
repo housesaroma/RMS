@@ -13,6 +13,10 @@
         [title]="item.label"
       >
         <ui-icon [name]="item.icon" />
+        @if (item.path === '/measures' && waiting()) {
+          <span class="nav-badge" aria-hidden="true">{{ waiting() }}</span>
+          <span class="sr-only">, ждут решения: {{ waiting() }}</span>
+        }
       </a>
     }
     <span class="spacer"></span>

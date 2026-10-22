@@ -1,10 +1,11 @@
 import { HttpClient, HttpParams, httpResource } from '@angular/common/http';
-import { Service, inject } from '@angular/core';
+import { Service, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API } from './api';
 import {
   AssessmentInput,
   Dictionaries,
+  MeasureActionInput,
   NewMeasure,
   NewRisk,
   ResponseMode,
@@ -52,6 +53,18 @@ export class RisksApi {
 
   comment(id: string, text: string): Promise<RiskDetails> {
     return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/comments`, { text }));
+  }
+
+  /** Bumped after measure changes so counters elsewhere (the approvals badge) refresh. */
+  readonly measuresChanged = signal(0);
+
+  /** Runs a measure transition; returns the card of the measure's risk. */
+  async measureAction(measureId: string, body: MeasureActionInput): Promise<RiskDetails> {
+    const card = await firstValueFrom(
+      this.http.post<RiskDetails>(`${API}/measures/${measureId}/actions`, body),
+    );
+    this.measuresChanged.update((n) => n + 1);
+    return card;
   }
 
   createMeasure(id: string, body: NewMeasure): Promise<RiskDetails> {

@@ -115,8 +115,8 @@ export function validateNewRisk(body: NewRisk, user: User, d: Dictionaries): str
   return null;
 }
 
-const roleOf = (u: User) => u.position || ROLE_NAMES[u.roles[0]];
-const shortName = (fullName: string) => {
+export const roleOf = (u: User) => u.position || ROLE_NAMES[u.roles[0]];
+export const shortName = (fullName: string) => {
   const [last, first = '', middle = ''] = fullName.split(' ');
   return `${last} ${first[0] ?? ''}. ${middle[0] ?? ''}.`.replace(' . .', '');
 };
@@ -346,9 +346,11 @@ export function addMeasure(
     costPlanned: body.costPlanned,
     costActual: null,
     executor: null,
+    author: shortName(user.fullName),
     sentAt: null,
     decidedAt: null,
     doneAt: null,
+    requests: [],
   });
   event(r, user, now, `Создана мера ${id} «${body.title.trim()}» в статусе «Черновик»`, 'measure');
   return null;

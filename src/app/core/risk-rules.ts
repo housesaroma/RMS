@@ -1,11 +1,16 @@
 // Business rules shared by the UI (what to enable, why not) and the mock server (what to enforce).
 // Source: analytics 07, 09, 10, 11, 13 and 03-roles-and-access.
 import {
+  ApprovalLevel,
   ApprovalThresholds,
   AssessmentInput,
   Dictionaries,
   Level,
+  Measure,
+  MeasureAction,
+  MeasureActionInput,
   MeasureStatus,
+  Process,
   RESPONSE_MODE_NAMES,
   RiskDetails,
   User,
@@ -52,8 +57,6 @@ export function lossOf(
 function round2(n: number): number {
   return Math.round((n + Number.EPSILON) * 100) / 100;
 }
-
-export type ApprovalLevel = 'NONE' | 'OWNER' | 'DIRECTOR' | 'CEO';
 
 /** The highest reached threshold decides; there is no OWNER → DIRECTOR → CEO chain. */
 export function approvalLevel(cost: number, t: ApprovalThresholds): ApprovalLevel {
@@ -151,3 +154,165 @@ export function canCreateMeasure(r: RiskDetails, u: User): Gate {
 export function canComment(u: User): Gate {
   return has(u, 'comment_risk') ? allow : deny('Недостаточно прав для комментариев');
 }
+
+// ── Measures (analytics 11, 12, 13) ────────────────────────────────────────────
+
+/** Statuses that hold the per-directorate slot of a risk (11, rules 20–22). Hold is not one of them. */
+export const SLOT_STATUSES: MeasureStatus[] = ['APPROVAL', 'APPROVED', 'PENDING', 'IN_PROGRESS'];
+
+export const MEASURE_ACTION_NAMES: Record<MeasureAction, string> = {
+  send: 'Отправить на согласование',
+  handover: 'Передать к выполнению',
+  approve: 'Согласовать',
+  reject: 'Отклонить',
+  revoke: 'Отозвать',
+  start: 'Начать выполнение',
+  hold: 'Приостановить',
+  resume: 'Возобновить',
+  finish: 'Завершить',
+  cancel: 'Отменить меру',
+};
+
+/** Actions offered for each status, in menu order. */
+export const ACTIONS_BY_STATUS: Record<MeasureStatus, MeasureAction[]> = {
+  DRAFT: ['send', 'handover', 'cancel'],
+  APPROVAL: ['approve', 'reject', 'revoke'],
+  APPROVED: ['handover', 'revoke'],
+  PENDING: ['start', 'cancel'],
+  IN_PROGRESS: ['finish', 'hold', 'cancel'],
+  HOLD: ['resume'],
+  DONE: [],
+  CANCELLED: [],
+};
+
+export function processOf(m: Measure, d: Dictionaries): Process | undefined {
+  return d.processes.find((p) => p.name === m.process);
+}
+
+function directorateOf(processName: string, d: Dictionaries): string | undefined {
+  return d.processes.find((p) => p.name === processName)?.directorate;
+}
+
+/** Another measure of the same risk and directorate that already holds the slot. */
+export function slotTakenBy(r: RiskDetails, m: Measure, d: Dictionaries): Measure | undefined {
+  const dir = directorateOf(m.process, d);
+  return r.measures.find(
+    (x) => x.id !== m.id && SLOT_STATUSES.includes(x.status) && directorateOf(x.process, d) === dir,
+  );
+}
+
+/** Employees of the measure's directorate (12, §3). */
+export function executorsFor(m: Measure, d: Dictionaries): string[] {
+  return d.staff[directorateOf(m.process, d) ?? ''] ?? [];
+}
+
+const isMeasureOwner = (m: Measure, u: User, d: Dictionaries) => processOf(m, d)?.ownerId === u.id;
+
+/** Whether the user may decide an approval request of this level for this measure. */
+export function canDecide(level: ApprovalLevel, m: Measure, u: User, d: Dictionaries): boolean {
+  if (isAdmin(u)) return true;
+  if (level === 'OWNER') return has(u, 'approve_owner_treatment') && isMeasureOwner(m, u, d);
+  if (level === 'DIRECTOR')
+    return has(u, 'approve_director_treatment') && u.directorate === directorateOf(m.process, d);
+  if (level === 'CEO') return has(u, 'approve_ceo_treatment');
+  return false;
+}
+
+function activeCycle(r: RiskDetails): Gate | null {
+  if (r.status !== 'ACTIVE' || !r.assessment)
+    return deny('Риск ждёт переоценки: активировать меры нельзя');
+  if (r.responseMode !== 'treat' && r.responseMode !== 'split')
+    return deny('Режим цикла не «Обработать» и не «Разделить»');
+  return null;
+}
+
+function slotFree(r: RiskDetails, m: Measure, d: Dictionaries): Gate | null {
+  const other = slotTakenBy(r, m, d);
+  return other ? deny(`В дирекции уже есть мера ${other.id} в работе или на согласовании`) : null;
+}
+
+/**
+ * Whether the user may run an action on a measure, and why not.
+ * Input is checked only when given (the server passes it; the UI asks for it afterwards).
+ */
+export function canMeasure(
+  action: MeasureAction,
+  m: Measure,
+  r: RiskDetails,
+  u: User,
+  d: Dictionaries,
+  input?: MeasureActionInput,
+): Gate {
+  if (!ACTIONS_BY_STATUS[m.status].includes(action))
+    return deny('Действие недоступно в текущем статусе меры');
+  const owner = processOf(m, d)?.owner ?? '—';
+  const executes = isAdmin(u) || (has(u, 'execute_treatment') && isMeasureOwner(m, u, d));
+  const level = approvalLevel(m.costPlanned, d.approval);
+  const open = m.requests.find((q) => q.status === 'APPROVAL');
+
+  switch (action) {
+    case 'send': {
+      if (!executes) return deny(`Отправляет владелец процесса меры: ${owner}`);
+      if (level === 'NONE') return deny('Согласование не требуется: передайте меру к выполнению');
+      // ponytail: every level is assumed to have an approver in the demo org; check org assignments with the real API.
+      return activeCycle(r) ?? slotFree(r, m, d) ?? allow;
+    }
+    case 'handover': {
+      if (!(isAdmin(u) || (executes && has(u, 'assign_treatment_executor'))))
+        return deny(`Передаёт к выполнению владелец процесса меры: ${owner}`);
+      if (m.status === 'DRAFT' && level !== 'NONE')
+        return deny(`Нужно согласование уровня ${level}: сначала отправьте меру`);
+      const gate = activeCycle(r) ?? slotFree(r, m, d);
+      if (gate) return gate;
+      if (input && !executorsFor(m, d).includes(input.executor ?? ''))
+        return deny('Выберите исполнителя из сотрудников дирекции процесса');
+      return allow;
+    }
+    case 'approve':
+    case 'reject': {
+      if (!open || !canDecide(open.level, m, u, d))
+        return deny(`Решает ${approverOf(open?.level ?? level, m.process, d)}`);
+      if (action === 'reject' && input && !input.reason?.trim())
+        return deny('Укажите причину отклонения');
+      return allow;
+    }
+    case 'revoke': {
+      if (!isAdmin(u)) return deny('Отозвать запрос может только администратор');
+      if (input && !input.reason?.trim()) return deny('Укажите причину отзыва');
+      return allow;
+    }
+    case 'start':
+      if (!executes) return deny(`Статус меняет владелец процесса меры: ${owner}`);
+      if (!m.executor) return deny('Не назначен исполнитель');
+      return slotFree(r, m, d) ?? allow;
+    case 'resume':
+      if (!executes) return deny(`Статус меняет владелец процесса меры: ${owner}`);
+      if (!m.executor) return deny('Не назначен исполнитель');
+      return activeCycle(r) ?? slotFree(r, m, d) ?? allow;
+    case 'finish':
+      if (!executes) return deny(`Статус меняет владелец процесса меры: ${owner}`);
+      if (input && !(Number.isFinite(input.costActual) && input.costActual! >= 0))
+        return deny('Укажите фактическую стоимость, не меньше 0');
+      return allow;
+    case 'hold':
+    case 'cancel':
+      return executes ? allow : deny(`Статус меняет владелец процесса меры: ${owner}`);
+  }
+}
+
+/** True when this action would close the last active measure and send the risk to reassessment (11, §5.5). */
+export function endsCycle(action: MeasureAction, m: Measure, r: RiskDetails): boolean {
+  const closes =
+    action === 'finish' ||
+    (action === 'cancel' && m.status !== 'DRAFT') ||
+    (action === 'revoke' && m.status === 'APPROVED');
+  return (
+    closes &&
+    r.status === 'ACTIVE' &&
+    ACTIVE_MEASURES.includes(m.status) &&
+    !r.measures.some((x) => x.id !== m.id && ACTIVE_MEASURES.includes(x.status))
+  );
+}
+
+/** Actions that need extra input or a confirmation before running. */
+export const ACTIONS_WITH_FORM: MeasureAction[] = ['reject', 'revoke', 'handover', 'finish'];

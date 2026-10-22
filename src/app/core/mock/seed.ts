@@ -1,4 +1,13 @@
-import { Assessment, HistoryEvent, Measure, ResponseMode, RiskDetails } from '../models';
+import {
+  ApprovalLevel,
+  ApprovalRequest,
+  Assessment,
+  HistoryEvent,
+  Measure,
+  ResponseMode,
+  RiskDetails,
+} from '../models';
+import { approvalLevel } from '../risk-rules';
 import { DICTIONARIES, PROCESS, ROWS, Row } from './db';
 
 const ASSETS: Record<string, string> = {
@@ -9,7 +18,7 @@ const ASSETS: Record<string, string> = {
 };
 
 // Active risks where the owner already chose to treat; the other active ones wait for a decision.
-const TREATED = ['R-0142', 'R-0144', 'R-0150', 'R-0127'];
+const TREATED = ['R-0142', 'R-0144', 'R-0150', 'R-0127', 'R-0148', 'R-0097', 'R-0136', 'R-0149'];
 
 const at = (date: string, time: string, plusDays = 0) => {
   const d = new Date(`${date}T${time}:00`);
@@ -36,6 +45,128 @@ function assessmentFor(row: Row, asset: string | null): Assessment {
   };
 }
 
+type MRow = [
+  id: string,
+  title: string,
+  riskId: string,
+  process: string,
+  status: Measure['status'],
+  due: string,
+  plan: number,
+  fact: number | null,
+  executor: string,
+  author: string,
+  sent: string,
+  decided: string,
+  done: string,
+  note?: string,
+];
+
+// Measures from the approved «Меры» prototype; dates are local times.
+// prettier-ignore
+const MROWS: MRow[] = [
+  ['М-0098', 'Дежурная линия поддержки 24/7 для ключевого клиента', 'R-0148', 'Поддержка клиентов по SLA', 'APPROVAL', '2026-11-20', 36000, null, '', 'Гусева Т. В.', '2026-10-11T09:20', '', ''],
+  ['М-0097', 'Мониторинг и автоперезапуск раннеров сборки', 'R-0142', 'Разработка ПО', 'DRAFT', '2026-12-15', 72000, null, '', 'Иванова Е. С.', '', '', ''],
+  ['М-0096', 'Актуализация регрессионного набора автотестов', 'R-0097', 'Тестирование и приёмка', 'APPROVED', '2026-10-20', 18500, null, '', 'Лебедева А. С.', '2026-10-07T10:15', '2026-10-08T11:00', ''],
+  ['М-0095', 'Резерв облачных мощностей на пиковый сезон', 'R-0150', 'Инфраструктура и ЦОД', 'IN_PROGRESS', '2026-10-31', 160000, null, 'Тарасов И. Н.', 'Мельников О. Д.', '2026-10-03T09:00', '2026-10-05T12:30', ''],
+  ['М-0094', 'Программа удержания и найм двух senior-разработчиков', 'R-0127', 'Подбор и удержание', 'APPROVAL', '2026-11-15', 64000, null, '', 'Захарова М. Ю.', '2026-10-09T11:05', '', ''],
+  ['М-0093', 'Страхование дебиторской задолженности заказчиков', 'R-0136', 'Казначейство', 'IN_PROGRESS', '2026-10-05', 85000, null, 'Ковалёва Т. С.', 'Никитина Л. Г.', '2026-09-23T10:00', '2026-09-25T15:00', ''],
+  ['М-0092', 'Пилот отечественных аналогов зарубежных лицензий', 'R-0139', 'Закупка лицензий ПО', 'DONE', '2026-09-30', 40000, 38200, 'Орлова Н. П.', 'Орлова Н. П.', '2026-09-12T10:00', '2026-09-14T10:00', '2026-09-29T17:00'],
+  ['М-0091', 'Резервные раннеры сборки и кеш артефактов', 'R-0142', 'Разработка ПО', 'APPROVAL', '2026-11-30', 380000, null, '', 'Иванова Е. С.', '2026-10-09T18:30', '', ''],
+  ['М-0090', 'Резервный субподрядчик для мобильной разработки', 'R-0144', 'Работа с субподрядчиками', 'PENDING', '2026-11-15', 210000, null, 'Сергеев В. И.', 'Сергеев В. И.', '2026-10-01T09:00', '2026-10-03T16:00', ''],
+  ['М-0089', 'Продление расширенной поддержки GitLab у вендора', 'R-0142', 'Работа с субподрядчиками', 'IN_PROGRESS', '2026-11-25', 45000, null, 'Зайцев П. Н.', 'Белов А. Н.', '2026-09-23T11:00', '2026-09-24T10:30', ''],
+  ['М-0088', 'Перераспределение квот между облачными проектами', 'R-0150', 'Инфраструктура и ЦОД', 'HOLD', '2026-10-02', 15000, null, 'Тарасов И. Н.', 'Мельников О. Д.', '2026-09-23T09:00', '2026-09-25T09:30', ''],
+  ['М-0087', 'Газовое пожаротушение в серверной офиса', 'R-0149', 'Инфраструктура и ЦОД', 'APPROVAL', '2026-12-31', 1240000, null, '', 'Мельников О. Д.', '2026-10-08T10:40', '', ''],
+  ['М-0084', 'Обучение команды отладке пайплайнов CI', 'R-0142', 'Разработка ПО', 'DONE', '2026-09-30', 28000, 26500, 'Соловьёв К. И.', 'Белов А. Н.', '2026-09-17T11:00', '2026-09-18T15:00', '2026-09-30T17:05'],
+  ['М-0083', 'Ротация ключей доступа и сканер секретов в репозиториях', 'R-0133', 'Релизы и деплой', 'DONE', '2026-10-03', 310000, 296400, 'Иванова Е. С.', 'Ким Р. А.', '2026-09-10T10:00', '2026-09-12T13:00', '2026-10-03T16:00'],
+  ['М-0078', 'Резервный ЦОД и георепликация бэкапов', 'R-0109', 'Защита данных', 'CANCELLED', '2027-03-31', 640000, null, 'Кравцов А. Л.', 'Волков Д. Е.', '2026-08-12T10:00', '2026-08-15T12:00', '', 'Риск принят, мера отменена владельцем процесса'],
+  ['М-0071', 'Нагрузочное тестирование платёжного модуля', 'R-0097', 'Тестирование и приёмка', 'CANCELLED', '2026-10-15', 95000, null, '', 'Лебедева А. С.', '2026-09-18T10:00', '2026-09-20T12:00', '', 'дублирует нагрузочные тесты эквайера'],
+];
+
+const local = (s: string) =>
+  s ? new Date(s.length === 10 ? s + 'T12:00:00' : s + ':00').toISOString() : null;
+
+function approverName(level: string, process: string): string {
+  const p = PROCESS.get(process)!;
+  if (level === 'CEO') return process === 'Инфраструктура и ЦОД' ? 'Белов А. Н.' : DICTIONARIES.ceo;
+  if (level === 'DIRECTOR') return DICTIONARIES.directors[p.directorate];
+  return p.owner;
+}
+
+const MEASURES = MROWS.map((row): Measure & { riskId: string } => {
+  const [
+    id,
+    title,
+    riskId,
+    process,
+    status,
+    due,
+    plan,
+    fact,
+    executor,
+    author,
+    sent,
+    decided,
+    done,
+    note,
+  ] = row;
+  const level = approvalLevel(plan, DICTIONARIES.approval) as Exclude<ApprovalLevel, 'NONE'>;
+  const requests: ApprovalRequest[] = [];
+  if (sent) {
+    const base = { level, sentAt: local(sent)!, sentBy: author };
+    if (status === 'APPROVAL')
+      requests.push({
+        ...base,
+        status: 'APPROVAL',
+        decidedAt: null,
+        decidedBy: null,
+        reason: null,
+      });
+    else if (id === 'М-0071')
+      requests.push({
+        ...base,
+        status: 'REVOKED',
+        decidedAt: local(decided),
+        decidedBy: 'Тихонов М. О.',
+        reason: note ?? null,
+      });
+    else
+      requests.push({
+        ...base,
+        status: 'APPROVED',
+        decidedAt: local(decided),
+        decidedBy: approverName(level, process),
+        reason: null,
+      });
+    if (id === 'М-0093')
+      requests.push({
+        ...base,
+        sentAt: local('2026-09-18T10:00')!,
+        status: 'REJECTED',
+        decidedAt: local('2026-09-22T12:00'),
+        decidedBy: approverName(level, process),
+        reason: 'нужен расчёт в сравнении с факторингом',
+      });
+  }
+  return {
+    id,
+    riskId,
+    title,
+    description: note && id !== 'М-0071' ? note : '',
+    status,
+    process,
+    dueDate: due,
+    costPlanned: plan,
+    costActual: fact,
+    executor: executor || null,
+    author,
+    sentAt: local(sent),
+    decidedAt: local(decided),
+    doneAt: local(done),
+    requests,
+  };
+});
+
 type Ev = [at: string, text: string, by: string, role: string, kind: HistoryEvent['kind']];
 type Cm = [authorId: string, author: string, role: string, at: string, text: string];
 
@@ -46,12 +177,6 @@ const R0142 = {
   author: 'Соловьёв К. И.',
   authorPosition: 'DevOps-инженер',
   secondary: ['Работа с субподрядчиками'],
-  // prettier-ignore
-  measures: [
-    { id: 'М-0091', title: 'Резервные раннеры сборки и кеш артефактов', description: 'Второй пул раннеров GitLab и общий кеш артефактов, чтобы сборки переключались без остановки выпуска', status: 'APPROVAL', process: 'Разработка ПО', dueDate: '2026-11-30', costPlanned: 380000, costActual: null, executor: null, sentAt: '2026-10-09T15:30:00.000Z', decidedAt: null, doneAt: null },
-    { id: 'М-0089', title: 'Продление расширенной поддержки GitLab у вендора', description: 'Договор расширенной поддержки с партнёром GitLab: реакция на инцидент конвейера до 4 часов', status: 'IN_PROGRESS', process: 'Работа с субподрядчиками', dueDate: '2026-11-25', costPlanned: 45000, costActual: null, executor: 'Зайцев П. Н.', sentAt: '2026-09-23T08:00:00.000Z', decidedAt: '2026-09-24T07:30:00.000Z', doneAt: null },
-    { id: 'М-0084', title: 'Обучение команды отладке пайплайнов CI', description: 'Диагностика падений сборок и быстрый перезапуск раннеров', status: 'DONE', process: 'Разработка ПО', dueDate: '2026-09-30', costPlanned: 28000, costActual: 26500, executor: 'Соловьёв К. И.', sentAt: '2026-09-17T08:00:00.000Z', decidedAt: '2026-09-17T12:00:00.000Z', doneAt: '2026-09-30T14:05:00.000Z' },
-  ] as Measure[],
   // prettier-ignore
   history: [
     ['2026-10-09T15:30', 'М-0091 отправлена на согласование: 380 000 ₽ ≥ 100 000 ₽, уровень CEO', 'Иванова Е. С.', 'Владелец процесса', 'approval'],
@@ -163,7 +288,7 @@ export function seedRisks(): RiskDetails[] {
       modeAt: mode && !reassess ? modeAt : null,
       assessment: reassess ? null : a,
       previous: reassess ? a : null,
-      measures: proto?.measures ?? [],
+      measures: MEASURES.filter((m) => m.riskId === id).map(({ riskId: _, ...m }) => m),
       history,
       comments: (proto?.comments ?? []).map(([authorId, by, role, when, text], k) => ({
         id: `C-${id}-${k}`,

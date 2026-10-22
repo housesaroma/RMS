@@ -1,9 +1,11 @@
 import { DICTIONARIES, USERS } from './mock/db';
+import { transitionMeasure } from './mock/measures';
 import { assess, chooseMode } from './mock/risks';
 import { seedRisks } from './mock/seed';
 import {
   approvalLevel,
   canAccept,
+  canMeasure,
   canAssess,
   canCreateMeasure,
   canTreat,
@@ -81,5 +83,88 @@ describe('risk rules', () => {
     expect(chooseMode(r, 'accept', ADMIN, DICTIONARIES, '2026-10-22T10:06:00Z')).toContain(
       'уже выбран',
     );
+  });
+
+  it('runs a measure through approval, handover and finish with the slot rule', () => {
+    const r = risk('R-0142');
+    const now = '2026-10-22T10:00:00Z';
+    const m91 = r.measures.find((m) => m.id === 'М-0091')!;
+    const m97 = r.measures.find((m) => m.id === 'М-0097')!;
+    // CEO level: the risk manager decides, the process owner cannot.
+    expect(canMeasure('approve', m91, r, IVANOVA, DICTIONARIES).ok).toBe(false);
+    expect(
+      transitionMeasure(r, 'М-0091', { action: 'approve' }, BELOV, DICTIONARIES, now),
+    ).toBeNull();
+    // The Разработка slot is held by М-0091, so the draft cannot be sent.
+    expect(canMeasure('send', m97, r, IVANOVA, DICTIONARIES).why).toContain('М-0091');
+    expect(
+      transitionMeasure(
+        r,
+        'М-0091',
+        { action: 'handover', executor: 'Зайцев П. Н.' },
+        IVANOVA,
+        DICTIONARIES,
+        now,
+      ),
+    ).toContain('исполнителя');
+    expect(
+      transitionMeasure(
+        r,
+        'М-0091',
+        { action: 'handover', executor: 'Голубев А. И.' },
+        IVANOVA,
+        DICTIONARIES,
+        now,
+      ),
+    ).toBeNull();
+    expect(
+      transitionMeasure(r, 'М-0091', { action: 'start' }, IVANOVA, DICTIONARIES, now),
+    ).toBeNull();
+    expect(
+      transitionMeasure(r, 'М-0091', { action: 'finish' }, IVANOVA, DICTIONARIES, now),
+    ).toContain('стоимость');
+    expect(
+      transitionMeasure(
+        r,
+        'М-0091',
+        { action: 'finish', costActual: 391500 },
+        IVANOVA,
+        DICTIONARIES,
+        now,
+      ),
+    ).toBeNull();
+    expect(m91).toMatchObject({ status: 'DONE', costActual: 391500, executor: 'Голубев А. И.' });
+    expect(canMeasure('send', m97, r, IVANOVA, DICTIONARIES).ok).toBe(true);
+    expect(r.status).toBe('ACTIVE'); // М-0089 is still in progress
+  });
+
+  it('rejects with a reason, revokes only as admin and ends the cycle on the last measure', () => {
+    const now = '2026-10-22T10:00:00Z';
+    const r = risk('R-0149');
+    expect(
+      transitionMeasure(r, 'М-0087', { action: 'reject', reason: ' ' }, BELOV, DICTIONARIES, now),
+    ).toContain('причину');
+    expect(
+      transitionMeasure(r, 'М-0087', { action: 'revoke', reason: 'x' }, BELOV, DICTIONARIES, now),
+    ).toContain('администратор');
+    expect(
+      transitionMeasure(
+        r,
+        'М-0087',
+        { action: 'reject', reason: 'Нужно два КП' },
+        BELOV,
+        DICTIONARIES,
+        now,
+      ),
+    ).toBeNull();
+    expect(r.measures[0]).toMatchObject({ status: 'DRAFT' });
+    expect(r.measures[0].requests[0]).toMatchObject({ status: 'REJECTED', reason: 'Нужно два КП' });
+
+    const last = risk('R-0144');
+    expect(
+      transitionMeasure(last, 'М-0090', { action: 'cancel' }, ADMIN, DICTIONARIES, now),
+    ).toBeNull();
+    expect(last).toMatchObject({ status: 'REASSESSMENT', assessment: null, responseMode: null });
+    expect(last.previous?.score).toBe(20);
   });
 });

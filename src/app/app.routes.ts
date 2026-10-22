@@ -34,6 +34,11 @@ export const routes: Routes = [
         title: 'Карточка риска · СУР',
         loadComponent: () => import('./features/risk-card/risk-card').then((m) => m.RiskCard),
       },
+      {
+        path: 'measures',
+        title: 'Меры · СУР',
+        loadComponent: () => import('./features/measures/measures').then((m) => m.Measures),
+      },
       section('archive', 'Архив', [ROOT, 'Архив']),
       { ...section('settings', 'Настройки', [ROOT, 'Настройки']), canMatch: [roleGuard('ADMIN')] },
     ],

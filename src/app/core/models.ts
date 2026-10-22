@@ -20,6 +20,12 @@ export type Right =
   | 'accept_director_risk'
   | 'accept_ceo_risk'
   | 'create_treatment'
+  | 'execute_treatment'
+  | 'edit_treatment'
+  | 'assign_treatment_executor'
+  | 'approve_owner_treatment'
+  | 'approve_director_treatment'
+  | 'approve_ceo_treatment'
   | 'admin';
 
 export interface User {
@@ -129,6 +135,8 @@ export interface Dictionaries {
   /** Directorate → its director's name. */
   directors: Record<string, string>;
   ceo: string;
+  /** Employees who may execute measures, by directorate. */
+  staff: Record<string, string[]>;
 }
 
 export const LIKELIHOOD_NAMES = [
@@ -181,9 +189,98 @@ export interface Measure {
   costPlanned: number;
   costActual: number | null;
   executor: string | null;
+  author: string;
   sentAt: string | null;
   decidedAt: string | null;
   doneAt: string | null;
+  /** Approval requests, newest first; at most one is open (status APPROVAL). */
+  requests: ApprovalRequest[];
+}
+
+export type RequestStatus = 'APPROVAL' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+
+export const REQUEST_STATUS_NAMES: Record<RequestStatus, string> = {
+  APPROVAL: 'На согласовании',
+  APPROVED: 'Согласовано',
+  REJECTED: 'Не согласовано',
+  REVOKED: 'Отозвано',
+};
+
+export type ApprovalLevel = 'NONE' | 'OWNER' | 'DIRECTOR' | 'CEO';
+
+export interface ApprovalRequest {
+  level: Exclude<ApprovalLevel, 'NONE'>;
+  status: RequestStatus;
+  sentAt: string;
+  sentBy: string;
+  decidedAt: string | null;
+  decidedBy: string | null;
+  reason: string | null;
+}
+
+export type MeasureAction =
+  | 'send'
+  | 'handover'
+  | 'approve'
+  | 'reject'
+  | 'revoke'
+  | 'start'
+  | 'hold'
+  | 'resume'
+  | 'finish'
+  | 'cancel';
+
+export interface MeasureActionInput {
+  action: MeasureAction;
+  reason?: string;
+  executor?: string;
+  costActual?: number;
+}
+
+/** A measure with its risk context, as listed on the measures screen. */
+export interface MeasureRow extends Measure {
+  riskId: string;
+  riskName: string;
+  directorate: string;
+  owner: string;
+  /** Actions for the current user, computed by the server with the same rules as the card. */
+  actions: { action: MeasureAction; ok: boolean; why: string; ends: boolean }[];
+  /** The risk still has draft measures (warning when an action ends the cycle). */
+  draftsLeft: boolean;
+}
+
+export interface MeasureQuery {
+  tab: 'all' | 'mine';
+  status: MeasureStatus | '';
+  q: string;
+  directorate: string;
+  executor: string;
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface MeasurePage {
+  items: MeasureRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  counts: Record<MeasureStatus | 'all', number>;
+  /** Tab badges: everything and the user's own assignments. */
+  tabs: { all: number; mine: number; approvals: number };
+}
+
+export interface ApprovalItem {
+  measure: MeasureRow;
+  request: ApprovalRequest;
+  /** Whether the current user may decide it. */
+  mine: boolean;
+  approver: string;
+}
+
+export interface ApprovalsPage {
+  pending: ApprovalItem[];
+  history: (ApprovalRequest & { measureId: string; title: string; riskId: string })[];
 }
 
 export type HistoryKind = 'create' | 'assess' | 'mode' | 'measure' | 'approval' | 'done' | 'system';

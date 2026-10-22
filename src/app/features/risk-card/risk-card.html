@@ -443,6 +443,7 @@
           <div role="tabpanel" id="p-measures" aria-labelledby="t-measures" class="panel-body">
             <div class="side__head">
               <h2>Предложенные меры</h2>
+              <a class="btn btn--ghost btn--xs" routerLink="/measures">Все меры →</a>
               <span class="tip">
                 <button
                   type="button"
@@ -490,6 +491,18 @@
                   <div class="measure__head">
                     <ui-measure-status [status]="m.status" />
                     <span class="tag tag--plain">{{ m.id }}</span>
+                    <span class="grow"></span>
+                    @if (measureMenu(m).length) {
+                      <button
+                        type="button"
+                        class="icon-btn icon-btn--bare menu-btn"
+                        [attr.aria-label]="'Действия с мерой ' + m.id"
+                        [cdkMenuTriggerFor]="measureMenuTpl"
+                        [cdkMenuTriggerData]="{ $implicit: m }"
+                      >
+                        <ui-icon name="more" [size]="18" />
+                      </button>
+                    }
                   </div>
                   <div>
                     <h3>{{ m.title }}</h3>
@@ -524,10 +537,6 @@
                   </div>
                 </article>
               }
-              <p class="muted xs">
-                Согласование, передачу к выполнению и завершение мер добавим вместе с разделом
-                «Меры».
-              </p>
             } @else {
               <p class="muted small">
                 Мер пока нет.
@@ -630,3 +639,30 @@
   />
   <section class="card empty muted" aria-busy="true">Загружаем карточку…</section>
 }
+
+<ng-template #measureMenuTpl let-ref>
+  <!-- CDK reuses the first context of a trigger, so read the measure fresh by id. -->
+  @let m = measureById(ref.id);
+  <div class="menu menu--wide" cdkMenu>
+    @for (item of measureMenu(m); track item.action) {
+      <button
+        type="button"
+        class="menu__item menu__item--stack"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="!item.gate.ok"
+        [attr.aria-disabled]="!item.gate.ok"
+        [class.danger]="
+          item.action === 'cancel' || item.action === 'reject' || item.action === 'revoke'
+        "
+        (cdkMenuItemTriggered)="runMeasure(m, item)"
+      >
+        <span>{{ item.label }}</span>
+        @if (item.gate.why) {
+          <span class="menu__cap">{{ item.gate.why }}</span>
+        } @else if (item.ends) {
+          <span class="menu__cap">Последняя активная мера: риск уйдёт на переоценку</span>
+        }
+      </button>
+    }
+  </div>
+</ng-template>

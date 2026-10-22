@@ -4,14 +4,29 @@ import { Dictionaries, Right, RiskStatus, Role, User } from '../models';
 export const DEMO_PASSWORD = 'sur-demo-2026';
 
 // Default role rights from the analytics (03-roles-and-access), trimmed to what the UI uses.
-const EMPLOYEE: Right[] = ['view_risk', 'create_risk', 'comment_risk', 'create_treatment'];
+const EMPLOYEE: Right[] = [
+  'view_risk',
+  'create_risk',
+  'comment_risk',
+  'create_treatment',
+  'execute_treatment',
+];
+const CEO: Right[] = ['view_risk', 'comment_risk', 'accept_ceo_risk', 'approve_ceo_treatment'];
 const RIGHTS: Record<Role, Right[]> = {
   EMPLOYEE,
-  OWNER: [...EMPLOYEE, 'edit_risk', 'assess_risk', 'accept_owner_risk'],
-  DIRECTOR: ['view_risk', 'comment_risk', 'accept_director_risk'],
-  CEO: ['view_risk', 'comment_risk', 'accept_ceo_risk'],
+  OWNER: [
+    ...EMPLOYEE,
+    'edit_risk',
+    'assess_risk',
+    'accept_owner_risk',
+    'edit_treatment',
+    'assign_treatment_executor',
+    'approve_owner_treatment',
+  ],
+  DIRECTOR: ['view_risk', 'comment_risk', 'accept_director_risk', 'approve_director_treatment'],
+  CEO,
   // Same rights as CEO (analytics 03, rule 15).
-  RISK_SPECIALIST: ['view_risk', 'comment_risk', 'accept_ceo_risk'],
+  RISK_SPECIALIST: CEO,
   ADMIN: ['admin'],
 };
 
@@ -203,8 +218,24 @@ export const DICTIONARIES: Dictionaries = {
     Разработка: 'Петров А. В.',
     'Закупки и вендоры': 'Фролов И. К.',
     Инфраструктура: 'Соколова Е. А.',
+    'Сервисная поддержка': 'Соколова Е. А.',
+    'Контроль качества (QA)': 'Ершов П. Н.',
+    'Персонал (HR)': 'Романова И. В.',
+    'Информационная безопасность': 'Карпов С. М.',
+    Финансы: 'Белова О. Р.',
   },
   ceo: 'Смирнов Д. А.',
+  // Employees who can be measure executors, by directorate (from the prototype).
+  staff: {
+    Разработка: ['Соловьёв К. И.', 'Голубев А. И.', 'Иванова Е. С.', 'Ким Р. А.'],
+    'Закупки и вендоры': ['Зайцев П. Н.', 'Сергеев В. И.', 'Орлова Н. П.'],
+    Инфраструктура: ['Тарасов И. Н.', 'Мельников О. Д.'],
+    'Сервисная поддержка': ['Пахомов Д. С.', 'Гусева Т. В.'],
+    'Контроль качества (QA)': ['Фомина Е. В.', 'Лебедева А. С.'],
+    'Персонал (HR)': ['Ильина О. П.', 'Захарова М. Ю.'],
+    'Информационная безопасность': ['Кравцов А. Л.', 'Волков Д. Е.'],
+    Финансы: ['Ковалёва Т. С.', 'Никитина Л. Г.'],
+  },
 };
 
 export type Row = [

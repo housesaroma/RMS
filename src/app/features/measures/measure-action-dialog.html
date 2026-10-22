@@ -1,0 +1,112 @@
+<div class="dialog body">
+  <div class="head">
+    <div class="grow">
+      <h2 id="ma-title">{{ title }}</h2>
+      <p class="muted lead">{{ data.measure.id }} «{{ data.measure.title }}»</p>
+    </div>
+    <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
+      <ui-icon name="close" [size]="16" />
+    </button>
+  </div>
+
+  <form class="form" (submit)="submit($event)">
+    @switch (data.action) {
+      @case ('reject') {
+        <label class="field">
+          <span class="muted">Причина отклонения *</span>
+          <textarea
+            class="input"
+            rows="3"
+            maxlength="1000"
+            placeholder="Например: нужна спецификация и сравнение двух коммерческих предложений"
+            [value]="reason()"
+            (input)="reason.set($any($event.target).value)"
+          ></textarea>
+          <span class="field__hint"
+            >Запрос получит статус «Не согласовано», мера вернётся в «Черновик».</span
+          >
+        </label>
+      }
+      @case ('revoke') {
+        <label class="field">
+          <span class="muted">Причина отзыва *</span>
+          <textarea
+            class="input"
+            rows="3"
+            maxlength="1000"
+            [value]="reason()"
+            (input)="reason.set($any($event.target).value)"
+          ></textarea>
+          <span class="field__hint"
+            >Из «На согласовании» мера вернётся в «Черновик», из «Согласовано» — станет
+            «Отменено».</span
+          >
+        </label>
+      }
+      @case ('handover') {
+        <label class="field">
+          <span class="muted">Исполнитель, сотрудник дирекции «{{ data.directorate }}» *</span>
+          <span class="select">
+            <select
+              class="input"
+              [value]="executor()"
+              (change)="executor.set($any($event.target).value)"
+            >
+              @for (p of data.executors; track p) {
+                <option [value]="p">{{ p }}</option>
+              }
+            </select>
+          </span>
+          <span class="field__hint"
+            >Назначение и статус «Ожидает выполнения» сохраняются одной операцией.</span
+          >
+        </label>
+      }
+      @case ('finish') {
+        <label class="field">
+          <span class="muted">Фактическая стоимость *</span>
+          <span class="money">
+            <input
+              class="input"
+              type="text"
+              inputmode="numeric"
+              placeholder="0"
+              [value]="cost()"
+              (input)="formatCost($any($event.target).value)"
+            />
+            <span aria-hidden="true">₽</span>
+          </span>
+          <span class="field__hint"
+            >План {{ rub(data.measure.costPlanned) }}. Сумма и статус «Готово» сохраняются
+            вместе.</span
+          >
+        </label>
+      }
+    }
+
+    @if (data.ends) {
+      <div class="note note--hint" role="note">
+        <ui-icon name="info" [size]="18" />
+        <span>
+          Это последняя активная мера по риску: после неё текущая оценка деактивируется и риск
+          перейдёт в «Ожидает переоценки».
+          @if (data.draftsLeft) {
+            По риску остались меры в статусе «Черновик» — их нельзя будет активировать до новой
+            оценки.
+          }
+        </span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="field__error strong" role="alert">{{ error() }}</div>
+    }
+
+    <div class="buttons">
+      <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Отмена</button>
+      <button type="submit" class="btn btn--sm" [disabled]="!valid() || busy()">
+        {{ busy() ? 'Сохраняем…' : data.ends ? 'Продолжить' : title }}
+      </button>
+    </div>
+  </form>
+</div>

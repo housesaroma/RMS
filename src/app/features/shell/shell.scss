@@ -29,6 +29,7 @@
 }
 
 .nav-link {
+  position: relative;
   width: var(--nav-btn);
   height: var(--nav-btn);
 
@@ -36,6 +37,23 @@
     background: var(--nav-active-bg);
     color: var(--nav-active-fg);
   }
+}
+
+.nav-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cta-bg);
+  color: var(--cta-fg);
+  font-size: 11px;
+  font-weight: 600;
 }
 
 .spacer {

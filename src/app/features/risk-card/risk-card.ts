@@ -1,4 +1,5 @@
 import { Dialog } from '@angular/cdk/dialog';
+import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { httpResource } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -8,6 +9,7 @@ import { daysLeft, date, duration, levelRange, rub } from '../../core/format';
 import {
   IMPACT_NAMES,
   LIKELIHOOD_NAMES,
+  MeasureAction,
   MeasureStatus,
   RESPONSE_MODE_NAMES,
   RiskDetails,
@@ -22,7 +24,13 @@ import {
   canComment,
   canCreateMeasure,
   canTreat,
+  ACTIONS_BY_STATUS,
+  MEASURE_ACTION_NAMES,
+  canMeasure,
+  endsCycle,
+  executorsFor,
 } from '../../core/risk-rules';
+import { MeasureActions } from '../measures/measure-actions';
 import { RisksApi } from '../../core/risks-api';
 import { Heatmap } from '../../ui/heatmap';
 import { Icon } from '../../ui/icon';
@@ -51,7 +59,18 @@ const MEASURE_ORDER: MeasureStatus[] = [
 
 @Component({
   selector: 'app-risk-card',
-  imports: [PageHeader, Icon, RiskStatusChip, MeasureStatusChip, RiskScore, Heatmap, RouterLink],
+  imports: [
+    PageHeader,
+    Icon,
+    RiskStatusChip,
+    MeasureStatusChip,
+    RiskScore,
+    Heatmap,
+    RouterLink,
+    CdkMenu,
+    CdkMenuItem,
+    CdkMenuTrigger,
+  ],
   templateUrl: './risk-card.html',
   styleUrl: './risk-card.scss',
 })
@@ -231,6 +250,50 @@ export class RiskCard {
           sub: 'Не блокирует принятие и закрытие риска',
           tone: '',
         };
+    }
+  }
+
+  private readonly measureActions = inject(MeasureActions);
+
+  protected measureById(id: string): RiskDetails['measures'][number] {
+    return this.risk()!.measures.find((x) => x.id === id)!;
+  }
+
+  /** Menu of a measure: every action of its status, disabled ones with the reason. */
+  protected measureMenu(m: RiskDetails['measures'][number]) {
+    const r = this.risk(),
+      u = this.auth.user(),
+      d = this.dict.value();
+    if (!r || !u || !d) return [];
+    return ACTIONS_BY_STATUS[m.status].map((action) => ({
+      action,
+      label: MEASURE_ACTION_NAMES[action],
+      gate: canMeasure(action, m, r, u, d),
+      ends: endsCycle(action, m, r),
+    }));
+  }
+
+  protected async runMeasure(
+    m: RiskDetails['measures'][number],
+    item: { action: MeasureAction; ends: boolean },
+  ): Promise<void> {
+    const r = this.risk()!,
+      d = this.dict.value()!;
+    this.notice.set(null);
+    try {
+      const updated = await this.measureActions.run({
+        measure: m,
+        action: item.action,
+        executors: executorsFor(m, d),
+        directorate: d.processes.find((p) => p.name === m.process)?.directorate ?? '',
+        ends: item.ends,
+        draftsLeft: r.measures.some((x) => x.id !== m.id && x.status === 'DRAFT'),
+      });
+      if (!updated) return;
+      this.risk.set(updated);
+      this.notice.set({ text: updated.history[0]?.text ?? 'Готово.', error: false });
+    } catch (e) {
+      this.notice.set({ text: errorMessage(e), error: true });
     }
   }
 

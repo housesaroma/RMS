@@ -1,0 +1,482 @@
+<ui-page-header
+  title="Меры"
+  [crumbs]="['Система управления рисками', { label: 'Риски', link: '/risks' }, 'Меры']"
+  [subtitle]="subtitle()"
+>
+  <span class="grow"></span>
+  <a class="btn btn--soft btn--sm" routerLink="/risks"
+    ><ui-icon name="alert" [size]="16" />К реестру рисков</a
+  >
+  <span class="tip">
+    <button type="button" class="btn btn--sm" aria-disabled="true" aria-describedby="create-tip">
+      <ui-icon name="plus" [size]="16" />Создать меру
+    </button>
+    <span id="create-tip" role="tooltip" class="tip__body">
+      Мера создаётся в карточке риска: после выбора режима «Обработать» там появляется кнопка
+      «Добавить меру».
+    </span>
+  </span>
+</ui-page-header>
+
+<section class="card list" aria-label="Меры обработки рисков">
+  <div class="row">
+    <div class="tabs" role="tablist" aria-label="Списки мер">
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="current() === 'all'"
+        (click)="setTab('all')"
+      >
+        Все меры <span class="pill__count">{{ data()?.tabs?.all ?? '' }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="current() === 'approvals'"
+        (click)="setTab('approvals')"
+      >
+        На согласование
+        @if (data()?.tabs?.approvals) {
+          <span class="badge">{{ data()!.tabs.approvals }}</span>
+        } @else {
+          <span class="pill__count">0</span>
+        }
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="current() === 'mine'"
+        (click)="setTab('mine')"
+      >
+        Мои поручения <span class="pill__count">{{ data()?.tabs?.mine ?? '' }}</span>
+      </button>
+    </div>
+  </div>
+
+  @if (notice(); as n) {
+    <div
+      class="note"
+      [class.note--error]="n.error"
+      [class.note--hint]="!n.error"
+      [attr.role]="n.error ? 'alert' : 'status'"
+    >
+      <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+      <span class="grow">{{ n.text }}</span>
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set(null)"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+
+  @if (current() !== 'approvals') {
+    @if (current() === 'mine') {
+      <p class="muted small">Меры процессов, где вы владелец, и меры, где вы исполнитель.</p>
+    }
+
+    <div class="chips" role="group" aria-label="Фильтр по статусу меры">
+      <button
+        type="button"
+        class="pill"
+        [attr.aria-selected]="!query().status"
+        (click)="patch({ status: null })"
+      >
+        Все статусы <span class="pill__count">{{ data()?.counts?.all ?? '' }}</span>
+      </button>
+      @for (s of statuses; track s) {
+        <button
+          type="button"
+          class="pill"
+          [attr.aria-selected]="query().status === s"
+          (click)="patch({ status: s })"
+        >
+          <span class="mdot" [attr.data-status]="s"></span>{{ statusNames[s] }}
+          <span class="pill__count">{{ data()?.counts?.[s] ?? '' }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="row filters">
+      <label class="input search">
+        <ui-icon name="search" [size]="18" />
+        <span class="sr-only">Поиск по названию и ID меры</span>
+        <input
+          type="search"
+          placeholder="Название или ID меры, риска"
+          [value]="search()"
+          (input)="setSearch($any($event.target).value)"
+        />
+      </label>
+      <label class="select filter">
+        <span class="sr-only">Дирекция</span>
+        <select
+          class="input"
+          [value]="query().directorate"
+          (change)="patch({ directorate: $any($event.target).value || null })"
+        >
+          <option value="">Все дирекции</option>
+          @for (d of dict.value()?.directorates; track d) {
+            <option [value]="d">{{ d }}</option>
+          }
+        </select>
+      </label>
+      <label class="select filter">
+        <span class="sr-only">Исполнитель</span>
+        <select
+          class="input"
+          [value]="query().executor"
+          (change)="patch({ executor: $any($event.target).value || null })"
+        >
+          <option value="">Все исполнители</option>
+          <option value="—">Без исполнителя</option>
+          @for (e of executors(); track e) {
+            <option [value]="e">{{ e }}</option>
+          }
+        </select>
+      </label>
+      <fieldset class="input period">
+        <legend class="sr-only">Срок выполнения</legend>
+        <ui-icon name="calendar" [size]="18" />
+        <label
+          ><span class="sr-only">Срок с</span>
+          <input
+            type="date"
+            [value]="query().from"
+            (change)="patch({ from: $any($event.target).value || null })"
+          />
+        </label>
+        <span aria-hidden="true">—</span>
+        <label
+          ><span class="sr-only">Срок по</span>
+          <input
+            type="date"
+            [value]="query().to"
+            (change)="patch({ to: $any($event.target).value || null })"
+          />
+        </label>
+      </fieldset>
+      <button
+        type="button"
+        class="btn btn--chip btn--xs"
+        [disabled]="!filtered()"
+        (click)="reset()"
+      >
+        <ui-icon name="close" [size]="14" />Сбросить
+      </button>
+    </div>
+
+    @if (list.error() && !data()) {
+      <div class="empty" role="alert">
+        <div class="empty__title">Не удалось загрузить меры. Повторите попытку</div>
+        <button type="button" class="btn btn--sm" (click)="list.reload()">Повторить</button>
+      </div>
+    } @else if (data(); as d) {
+      @if (d.items.length) {
+        <div class="scroll" [class.loading]="list.isLoading()">
+          <table
+            [attr.aria-label]="current() === 'mine' ? 'Мои поручения' : 'Меры обработки рисков'"
+            [attr.aria-busy]="list.isLoading()"
+          >
+            <colgroup>
+              <col style="width: 64px" />
+              <col />
+              <col style="width: 190px" />
+              <col style="width: 150px" />
+              <col style="width: 120px" />
+              <col style="width: 112px" />
+              <col style="width: 120px" />
+              <col style="width: 92px" />
+              <col style="width: 168px" />
+              <col style="width: 44px" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">ID</th>
+                <th scope="col">Мера</th>
+                <th scope="col">Риск</th>
+                <th scope="col">Дирекция / процесс</th>
+                <th scope="col">Исполнитель</th>
+                <th scope="col">Срок</th>
+                <th scope="col">План / факт</th>
+                <th scope="col">Уровень<span class="sr-only"> согласования</span></th>
+                <th scope="col">Статус</th>
+                <th scope="col"><span class="sr-only">Действия</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (m of d.items; track m.id) {
+                @let dd = due(m);
+                <tr>
+                  <td class="muted small">{{ m.id }}</td>
+                  <td>
+                    <span class="strong block">{{ m.title }}</span>
+                    <span class="muted xs block">автор {{ m.author }}</span>
+                  </td>
+                  <td class="small">
+                    <a class="link" [routerLink]="['/risks', m.riskId]" [title]="m.riskName">
+                      <span class="muted">{{ m.riskId }}</span> · {{ m.riskName }}
+                    </a>
+                  </td>
+                  <td>
+                    <span class="block small">{{ m.directorate }}</span>
+                    <span class="muted xs block">{{ m.process }}</span>
+                  </td>
+                  <td class="small" [class.muted]="!m.executor">
+                    {{ m.executor ?? 'не назначен' }}
+                  </td>
+                  <td class="small">
+                    <span class="block">{{ dd.text }}</span>
+                    @if (dd.sub) {
+                      <span class="xs block" [class.late]="dd.late" [class.muted]="!dd.late">{{
+                        dd.sub
+                      }}</span>
+                    }
+                  </td>
+                  <td class="small">
+                    <span class="block">{{ rub(m.costPlanned) }}</span>
+                    <span class="muted xs block">{{
+                      m.costActual != null ? 'факт ' + rub(m.costActual) : '—'
+                    }}</span>
+                  </td>
+                  <td>
+                    @if (level(m) !== 'NONE') {
+                      <span class="level-chip" [attr.data-level]="level(m)">{{ level(m) }}</span>
+                    }
+                  </td>
+                  <td><ui-measure-status [status]="m.status" /></td>
+                  <td class="actions">
+                    @if (m.actions.length) {
+                      <button
+                        type="button"
+                        class="icon-btn icon-btn--bare"
+                        [attr.aria-label]="'Действия с мерой ' + m.id"
+                        [cdkMenuTriggerFor]="rowMenu"
+                        [cdkMenuTriggerData]="{ $implicit: m }"
+                      >
+                        <ui-icon name="more" [size]="18" />
+                      </button>
+                    }
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <div class="empty">
+          <span class="empty__icon" aria-hidden="true"><ui-icon name="search" [size]="24" /></span>
+          <div class="empty__title">{{ filtered() ? 'Ничего не найдено' : 'Мер пока нет' }}</div>
+          @if (filtered()) {
+            <p class="muted">
+              По заданным условиям мер нет. Измените запрос, статус или сбросьте фильтры.
+            </p>
+            <button type="button" class="btn btn--sm" (click)="reset()">Сбросить фильтры</button>
+          }
+        </div>
+      }
+
+      @if (d.total) {
+        <div class="row pager">
+          <span class="muted">
+            {{
+              filtered() || current() === 'mine'
+                ? 'Найдено: ' + d.total
+                : (d.page - 1) * d.pageSize +
+                  1 +
+                  '–' +
+                  ((d.page - 1) * d.pageSize + d.items.length) +
+                  ' из ' +
+                  d.total
+            }}
+          </span>
+          @if (lastPage() > 1) {
+            <nav aria-label="Страницы списка мер" class="pages">
+              <button
+                type="button"
+                class="icon-btn page page--nav"
+                aria-label="Предыдущая страница"
+                [disabled]="query().page <= 1"
+                (click)="patch({ page: '' + (query().page - 1) }, true)"
+              >
+                <ui-icon name="chevron-left" [size]="16" />
+              </button>
+              <span class="muted small">{{ query().page }} из {{ lastPage() }}</span>
+              <button
+                type="button"
+                class="icon-btn page page--nav"
+                aria-label="Следующая страница"
+                [disabled]="query().page >= lastPage()"
+                (click)="patch({ page: '' + (query().page + 1) }, true)"
+              >
+                <ui-icon name="chevron-right" [size]="16" />
+              </button>
+            </nav>
+          }
+        </div>
+      }
+    } @else {
+      <div class="empty muted" aria-busy="true">Загружаем меры…</div>
+    }
+  } @else {
+    @if (approvals.value(); as a) {
+      <div class="summary">
+        <div class="tile tile--mine">
+          <span class="label"><i class="dot dot--mine"></i>Ждут вашего решения</span>
+          <span class="tile__value">{{ data()?.tabs?.approvals ?? 0 }}</span>
+          <span class="muted xs">Запросы вашего уровня и дирекций</span>
+        </div>
+        <div class="tile">
+          <span class="label"><i class="dot"></i>У других согласующих</span>
+          <span class="tile__value">{{ a.pending.length - (data()?.tabs?.approvals ?? 0) }}</span>
+          <span class="muted xs">Видны для контроля, решение за ответственным уровня</span>
+        </div>
+        <div class="tile tile--wide">
+          <span class="label">Маршрут по плановой стоимости</span>
+          <div class="thresholds">
+            @for (t of thresholdText(); track t) {
+              <span class="tag">{{ t }}</span>
+            }
+          </div>
+          <span class="muted xs">
+            Согласование одноуровневое: действует самый высокий достигнутый порог. Отозвать запрос
+            может только администратор.
+          </span>
+        </div>
+      </div>
+
+      @for (item of a.pending; track item.measure.id) {
+        <article
+          class="request"
+          [class.request--mine]="item.mine"
+          [attr.aria-label]="item.measure.id + ' ' + item.measure.title"
+        >
+          <div class="request__main">
+            <div class="row">
+              <span class="tag tag--plain">{{ item.measure.id }}</span>
+              <span class="level-chip" [attr.data-level]="item.request.level">{{
+                item.request.level
+              }}</span>
+              <span class="tag tag--plain">{{ waitText(item.request.sentAt) }}</span>
+              @if (item.mine) {
+                <span class="tag tag--mine">Ваше решение</span>
+              }
+            </div>
+            <h3>{{ item.measure.title }}</h3>
+            <div class="muted small">
+              Риск
+              <a class="link" [routerLink]="['/risks', item.measure.riskId]"
+                >{{ item.measure.riskId }} · {{ item.measure.riskName }}</a
+              ><br />
+              {{ item.measure.directorate }} / {{ item.measure.process }}
+            </div>
+          </div>
+          <div class="request__facts">
+            <div>
+              <span class="label">Плановая стоимость</span
+              ><span class="cost">{{ rub(item.measure.costPlanned) }}</span>
+            </div>
+            <div>
+              <span class="label">Согласует</span><span class="small">{{ item.approver }}</span>
+            </div>
+            <div>
+              <span class="label">Отправил</span
+              ><span class="small"
+                >{{ item.request.sentBy }} · {{ date(item.request.sentAt, true) }}</span
+              >
+            </div>
+          </div>
+          <div class="request__actions">
+            @if (gate(item, 'approve').ok) {
+              <button type="button" class="btn btn--sm" (click)="decide(item, 'approve')">
+                Согласовать
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm" (click)="decide(item, 'reject')">
+                Отклонить
+              </button>
+            } @else {
+              <span class="muted xs">{{ gate(item, 'approve').why }}</span>
+            }
+          </div>
+        </article>
+      } @empty {
+        <div class="empty">
+          <span class="empty__icon" aria-hidden="true"><ui-icon name="info" [size]="24" /></span>
+          <div class="empty__title">Ожидающих решений нет</div>
+          <p class="muted">
+            Новые запросы появятся здесь и в счётчике вкладки. Решённые запросы остаются в истории
+            меры.
+          </p>
+        </div>
+      }
+
+      <div class="history">
+        <div class="row">
+          <h2>История запросов</h2>
+          <span class="muted small"
+            >последние решения; полная история каждой меры — в карточке риска</span
+          >
+        </div>
+        @for (h of a.history; track $index) {
+          <div class="history__row">
+            <span class="muted small">{{ date(h.decidedAt) }}</span>
+            <span class="muted small">{{ h.measureId }}</span>
+            <a class="link small" [routerLink]="['/risks', h.riskId]">{{ h.title }}</a>
+            <span class="result" [attr.data-result]="h.status">{{ requestNames[h.status] }}</span>
+            <span class="level-chip" [attr.data-level]="h.level">{{ h.level }}</span>
+            <span class="small">
+              {{ h.decidedBy }}
+              @if (h.reason) {
+                <span class="muted xs block">Причина: {{ h.reason }}</span>
+              }
+            </span>
+          </div>
+        }
+      </div>
+    } @else if (approvals.error()) {
+      <div class="empty" role="alert">
+        <div class="empty__title">Не удалось загрузить запросы. Повторите попытку</div>
+        <button type="button" class="btn btn--sm" (click)="approvals.reload()">Повторить</button>
+      </div>
+    } @else {
+      <div class="empty muted" aria-busy="true">Загружаем запросы…</div>
+    }
+  }
+</section>
+
+<ng-template #rowMenu let-ref>
+  <!-- CDK reuses the first context of a trigger, so read the row fresh by id. -->
+  @let m = rowById(ref.id) ?? ref;
+  <div class="menu menu--wide" cdkMenu>
+    <a class="menu__item menu__item--stack" cdkMenuItem [routerLink]="['/risks', m.riskId]">
+      <span>Открыть карточку риска</span>
+      <span class="menu__cap">{{ m.riskId }} · меры, история, комментарии</span>
+    </a>
+    @for (item of m.actions; track item.action) {
+      <button
+        type="button"
+        class="menu__item menu__item--stack"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="!item.ok"
+        [attr.aria-disabled]="!item.ok"
+        [class.danger]="
+          item.action === 'cancel' || item.action === 'reject' || item.action === 'revoke'
+        "
+        (cdkMenuItemTriggered)="run(m, item)"
+      >
+        <span>{{ actionLabel(item.action) }}</span>
+        @if (item.why) {
+          <span class="menu__cap">{{ item.why }}</span>
+        } @else if (item.ends) {
+          <span class="menu__cap">Последняя активная мера: риск уйдёт на переоценку</span>
+        }
+      </button>
+    }
+  </div>
+</ng-template>

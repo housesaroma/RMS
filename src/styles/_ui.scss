@@ -490,3 +490,32 @@ textarea.input {
   background: var(--chip-bg);
   color: var(--chip-fg);
 }
+
+.menu--wide {
+  min-width: 260px;
+  max-width: 340px;
+}
+
+.menu__item--stack {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  height: auto;
+  min-height: 38px;
+  padding: 8px 12px;
+
+  &[aria-disabled='true'] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  &.danger > span:first-child {
+    color: var(--danger-fg);
+  }
+}
+
+.menu__cap {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  line-height: 1.3;
+}

@@ -9,6 +9,7 @@ import { Observable, delay, of, throwError } from 'rxjs';
 import { API } from '../api';
 import {
   AssessmentInput,
+  MeasureActionInput,
   LoginResponse,
   NewMeasure,
   NewRisk,
@@ -31,14 +32,15 @@ import {
   validateNewRisk,
 } from './risks';
 import { seedRisks } from './seed';
+import { approvalsFor, pageMeasures, parseMeasureQuery, transitionMeasure } from './measures';
 
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
 
 // Everything changed in the demo survives a page reload; bump the key when the seed changes shape.
-const STORE = 'rms.mock.v2';
+const STORE = 'rms.mock.v3';
 const risks: RiskDetails[] = (() => {
   try {
-    localStorage.removeItem('rms.mock.risks');
+    ['rms.mock.risks', 'rms.mock.v2'].forEach((k) => localStorage.removeItem(k));
     return (
       (JSON.parse(localStorage.getItem(STORE) ?? 'null') as RiskDetails[] | null) ?? seedRisks()
     );
@@ -171,6 +173,30 @@ const routes: [string, RegExp, Handler][] = [
       mutate(req, id, (r) =>
         addMeasure(risks, r, req.body as NewMeasure, userFromToken(req), now()),
       ),
+  ],
+  [
+    'GET',
+    /^measures$/,
+    (req) => pageMeasures(risks, parseMeasureQuery(req.params), userFromToken(req), DICTIONARIES),
+  ],
+  ['GET', /^approvals$/, (req) => approvalsFor(risks, userFromToken(req), DICTIONARIES)],
+  [
+    'POST',
+    /^measures\/(М-\d+)\/actions$/,
+    (req, [mid]) => {
+      const owner =
+        risks.find((r) => r.measures.some((m) => m.id === mid)) ?? fail(404, 'Мера не найдена');
+      return mutate(req, owner.id, (r) =>
+        transitionMeasure(
+          r,
+          mid,
+          req.body as MeasureActionInput,
+          userFromToken(req),
+          DICTIONARIES,
+          now(),
+        ),
+      );
+    },
   ],
 ];
 
