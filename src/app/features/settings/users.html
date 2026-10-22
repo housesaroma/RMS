@@ -1,0 +1,224 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Пользователи']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+  <span class="grow"></span>
+  <button type="button" class="btn btn--cta btn--sm" (click)="open(null)">
+    <ui-icon name="plus" [size]="16" />Добавить пользователя
+  </button>
+</ui-page-header>
+
+<section class="card block" aria-label="Сводка по пользователям">
+  <div class="kpis">
+    @for (k of kpis(); track k.label) {
+      <div class="kpi">
+        <span class="muted small">{{ k.label }}</span>
+        <b>{{ k.n }}</b>
+        <span class="muted xs">{{ k.note }}</span>
+      </div>
+    }
+  </div>
+</section>
+
+<section class="card block" aria-label="Пользователи">
+  @if (notice(); as n) {
+    <div
+      class="note"
+      [class.note--error]="n.error"
+      [class.note--hint]="!n.error"
+      [attr.role]="n.error ? 'alert' : 'status'"
+    >
+      <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+      <span class="grow">{{ n.text }}</span>
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set(null)"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+  <div class="row filters">
+    <label class="input search">
+      <ui-icon name="search" [size]="18" />
+      <span class="sr-only">Поиск по ФИО и email</span>
+      <input
+        type="search"
+        placeholder="Поиск по ФИО или email"
+        [value]="q()"
+        (input)="q.set($any($event.target).value)"
+      />
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Роль</span>
+      <select class="input" (change)="role.set($any($event.target).value)">
+        <option value="" [selected]="!role()">Все роли</option>
+        @for (r of roleCodes; track r) {
+          <option [value]="r" [selected]="r === role()">{{ roleNames[r] }}</option>
+        }
+      </select>
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Дирекция</span>
+      <select class="input" (change)="dir.set($any($event.target).value)">
+        <option value="" [selected]="!dir()">Все дирекции</option>
+        @for (d of dict.value()?.directorates; track d) {
+          <option [value]="d" [selected]="d === dir()">{{ d }}</option>
+        }
+      </select>
+    </label>
+    <div class="chips" role="radiogroup" aria-label="Статус">
+      @for (
+        s of [
+          { k: 'all', n: 'Все' },
+          { k: 'active', n: 'Активные' },
+          { k: 'blocked', n: 'Заблокированные' },
+        ];
+        track s.k
+      ) {
+        <button
+          type="button"
+          role="radio"
+          class="pill"
+          [attr.aria-checked]="status() === s.k"
+          [attr.aria-selected]="status() === s.k"
+          (click)="status.set($any(s.k))"
+        >
+          {{ s.n }}
+        </button>
+      }
+    </div>
+    @if (filtered()) {
+      <button type="button" class="btn btn--chip btn--xs" (click)="reset()">Сбросить</button>
+    }
+  </div>
+
+  @if (list.error()) {
+    <div class="empty" role="alert">
+      Не удалось загрузить пользователей.
+      <button type="button" class="btn btn--xs" (click)="list.reload()">Повторить</button>
+    </div>
+  } @else {
+    <div class="scroll">
+      <table aria-label="Пользователи" style="min-width: 980px">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">ФИО</th>
+            <th scope="col">Email</th>
+            <th scope="col">Должность</th>
+            <th scope="col">Роли</th>
+            <th scope="col">Дирекция</th>
+            <th scope="col">Статус</th>
+            <th scope="col"><span class="sr-only">Действия</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (u of rows(); track u.id) {
+            <tr>
+              <td class="muted small">{{ u.id }}</td>
+              <td>
+                <span class="row">
+                  <span class="avatar avatar--xs" aria-hidden="true">{{
+                    initials(u.fullName)
+                  }}</span>
+                  <button type="button" class="linkish" (click)="open(u)">{{ u.fullName }}</button>
+                </span>
+              </td>
+              <td class="small">{{ u.email }}</td>
+              <td class="small">{{ u.position || '—' }}</td>
+              <td>
+                <span class="chips">
+                  @for (r of u.roles; track r) {
+                    <abbr class="tag" [title]="roleNames[r]">{{ r }}</abbr>
+                  }
+                </span>
+              </td>
+              <td class="small">{{ u.directorate ?? 'вне оргструктуры' }}</td>
+              <td>
+                <span class="state" [class.off]="u.blocked">{{
+                  u.blocked ? 'Заблокирован' : 'Активен'
+                }}</span>
+              </td>
+              <td class="actions">
+                <button
+                  type="button"
+                  class="icon-btn icon-btn--bare"
+                  [attr.aria-label]="'Действия: ' + u.fullName"
+                  [cdkMenuTriggerFor]="menu"
+                  [cdkMenuTriggerData]="{ $implicit: u }"
+                >
+                  <ui-icon name="more" [size]="18" />
+                </button>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8" class="empty">
+                {{
+                  list.isLoading()
+                    ? 'Загружаем…'
+                    : 'Никого не нашли. Измените запрос или сбросьте фильтры.'
+                }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="muted small">Показано: {{ rows().length }} из {{ list.value()?.length ?? 0 }}</div>
+  }
+</section>
+
+<ng-template #menu let-ref>
+  @let u = byId(ref.id);
+  <div class="menu menu--wide" cdkMenu>
+    <button type="button" class="menu__item" cdkMenuItem (cdkMenuItemTriggered)="open(u)">
+      Открыть профиль
+    </button>
+    @if (u.blocked) {
+      <button
+        type="button"
+        class="menu__item"
+        cdkMenuItem
+        (cdkMenuItemTriggered)="setBlocked(u, false)"
+      >
+        Разблокировать
+      </button>
+    } @else {
+      <button
+        type="button"
+        class="menu__item"
+        cdkMenuItem
+        (cdkMenuItemTriggered)="mail(u, 'reset')"
+      >
+        Сбросить пароль
+      </button>
+      <button
+        type="button"
+        class="menu__item"
+        cdkMenuItem
+        (cdkMenuItemTriggered)="mail(u, 'resend')"
+      >
+        Отправить письмо повторно
+      </button>
+      <button
+        type="button"
+        class="menu__item menu__item--stack danger"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="!!u.blockReason"
+        [attr.aria-disabled]="!!u.blockReason"
+        (cdkMenuItemTriggered)="setBlocked(u, true)"
+      >
+        <span>Заблокировать</span>
+        @if (u.blockReason) {
+          <span class="menu__cap">{{ u.blockReason }}</span>
+        }
+      </button>
+    }
+  </div>
+</ng-template>

@@ -8,7 +8,10 @@ import {
 import { Observable, delay, of, throwError } from 'rxjs';
 import { API } from '../api';
 import {
+  AdminUser,
   AssessmentInput,
+  ImportType,
+  NewUser,
   MeasureActionInput,
   LoginResponse,
   NewMeasure,
@@ -18,7 +21,25 @@ import {
   ResponseMode,
   RiskDetails,
 } from '../models';
-import { DEMO_PASSWORD, DICTIONARIES, USERS } from './db';
+import {
+  DEFAULT_MATRIX,
+  DEMO_PASSWORD,
+  DICTIONARIES as SEED_DICT,
+  ROLE_DEFS,
+  USERS as SEED_USERS,
+} from './db';
+import {
+  MockState,
+  blockReason,
+  createUser,
+  importTemplate,
+  rolesState,
+  runImport,
+  saveRoles,
+  updateDictionaries,
+  updateUser,
+  withRights,
+} from './admin';
 import {
   addComment,
   addMeasure,
@@ -45,22 +66,33 @@ import { approvalsFor, pageMeasures, parseMeasureQuery, transitionMeasure } from
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
 
 // Everything changed in the demo survives a page reload; bump the key when the seed changes shape.
-const STORE = 'rms.mock.v5';
-const risks: RiskDetails[] = (() => {
+const STORE = 'rms.mock.v6';
+const seed = (): MockState => ({
+  risks: seedRisks(),
+  users: structuredClone(SEED_USERS),
+  dict: structuredClone(SEED_DICT),
+  roles: structuredClone(ROLE_DEFS),
+  matrix: structuredClone(DEFAULT_MATRIX),
+  imports: [],
+  changes: [],
+});
+const state: MockState = (() => {
   try {
-    ['rms.mock.risks', 'rms.mock.v2', 'rms.mock.v3', 'rms.mock.v4'].forEach((k) =>
+    ['rms.mock.risks', 'rms.mock.v2', 'rms.mock.v3', 'rms.mock.v4', 'rms.mock.v5'].forEach((k) =>
       localStorage.removeItem(k),
     );
-    return (
-      (JSON.parse(localStorage.getItem(STORE) ?? 'null') as RiskDetails[] | null) ?? seedRisks()
-    );
+    return (JSON.parse(localStorage.getItem(STORE) ?? 'null') as MockState | null) ?? seed();
   } catch {
-    return seedRisks();
+    return seed();
   }
 })();
+// Aliases: these objects are mutated in place and never replaced.
+const risks = state.risks;
+const DICTIONARIES = state.dict;
+const USERS = state.users;
 const save = () => {
   try {
-    localStorage.setItem(STORE, JSON.stringify(risks));
+    localStorage.setItem(STORE, JSON.stringify(state));
   } catch {}
 };
 
@@ -70,7 +102,20 @@ const fail = (status: number, message: string): never => {
 
 const userFromToken = (req: HttpRequest<unknown>) => {
   const id = req.headers.get('Authorization')?.replace('Bearer mock.', '');
-  return USERS.find((u) => u.id === id && !u.blocked) ?? fail(401, 'Сессия истекла');
+  const user = USERS.find((u) => u.id === id && !u.blocked) ?? fail(401, 'Сессия истекла');
+  return withRights(user, state);
+};
+
+const adminFromToken = (req: HttpRequest<unknown>) => {
+  const user = userFromToken(req);
+  return user.rights.includes('admin') ? user : fail(403, 'Раздел доступен только администратору');
+};
+
+/** Admin mutation: a string result becomes a 422, anything else is saved and returned. */
+const adminChange = <T>(result: T | string): T => {
+  if (typeof result === 'string') return fail(422, result);
+  save();
+  return result;
 };
 
 const find = (id: string) => risks.find((r) => r.id === id) ?? fail(404, 'Риск не найден');
@@ -100,7 +145,7 @@ const routes: [string, RegExp, Handler][] = [
       if (!user || password !== DEMO_PASSWORD) return fail(401, 'Неверный логин или пароль');
       if (user.blocked)
         return fail(403, 'Учётная запись заблокирована. Обратитесь к администратору.');
-      return { token: 'mock.' + user.id, user } satisfies LoginResponse;
+      return { token: 'mock.' + user.id, user: withRights(user, state) } satisfies LoginResponse;
     },
   ],
   ['GET', /^auth\/me$/, (req) => userFromToken(req)],
@@ -259,6 +304,79 @@ const routes: [string, RegExp, Handler][] = [
           now(),
         ),
       );
+    },
+  ],
+  // ── Administration ──
+  [
+    'GET',
+    /^admin\/users$/,
+    (req) => (
+      adminFromToken(req),
+      USERS.map((u) => ({ ...withRights(u, state), blockReason: blockReason(state, u) }))
+    ),
+  ],
+  [
+    'POST',
+    /^admin\/users$/,
+    (req) => adminChange(createUser(state, req.body as NewUser, adminFromToken(req), now())),
+  ],
+  [
+    'PATCH',
+    /^admin\/users\/(U-\d+)$/,
+    (req, [id]) =>
+      adminChange(
+        updateUser(state, id, req.body as Partial<AdminUser>, adminFromToken(req), now()),
+      ),
+  ],
+  ['GET', /^admin\/roles$/, (req) => (adminFromToken(req), rolesState(state))],
+  [
+    'PUT',
+    /^admin\/roles$/,
+    (req) =>
+      adminChange(
+        saveRoles(state, req.body as Parameters<typeof saveRoles>[1], adminFromToken(req), now()),
+      ),
+  ],
+  [
+    'PATCH',
+    /^admin\/dictionaries$/,
+    (req) =>
+      adminChange(
+        updateDictionaries(
+          state,
+          req.body as Parameters<typeof updateDictionaries>[1],
+          adminFromToken(req),
+          now(),
+        ),
+      ),
+  ],
+  ['GET', /^admin\/changes$/, (req) => (adminFromToken(req), state.changes.slice(0, 30))],
+  ['GET', /^admin\/imports$/, (req) => (adminFromToken(req), state.imports)],
+  [
+    'GET',
+    /^admin\/imports\/template$/,
+    (req) => (adminFromToken(req), importTemplate(req.params.get('type') as ImportType)),
+  ],
+  [
+    'POST',
+    /^admin\/imports$/,
+    (req) => {
+      const user = adminFromToken(req);
+      const body = req.body as { type: ImportType; file: string; rows: string[][] };
+      const result = runImport(
+        state,
+        body,
+        user,
+        now(),
+        ([name, description, hazard, category, process]) => {
+          const input = { name, description, hazard, category, process, asset: '', top: false };
+          const error = validateNewRisk(input, user, DICTIONARIES);
+          if (!error) risks.unshift(createRisk(risks, input, user, DICTIONARIES, now()));
+          return error;
+        },
+      );
+      save();
+      return result;
     },
   ],
 ];

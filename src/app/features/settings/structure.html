@@ -1,0 +1,177 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Структура']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+</ui-page-header>
+
+@if (notice(); as n) {
+  <div
+    class="note"
+    [class.note--error]="n.error"
+    [class.note--hint]="!n.error"
+    [attr.role]="n.error ? 'alert' : 'status'"
+  >
+    <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+    <span class="grow">{{ n.text }}</span>
+    <button
+      type="button"
+      class="icon-btn icon-btn--bare close"
+      aria-label="Скрыть сообщение"
+      (click)="notice.set(null)"
+    >
+      <ui-icon name="close" [size]="14" />
+    </button>
+  </div>
+}
+
+<div class="cols">
+  <section class="card block" aria-labelledby="dirs-title">
+    <div class="row">
+      <h2 id="dirs-title">Дирекции и процессы</h2>
+      <span class="tag">{{ dirs().length }}</span>
+      <span class="grow"></span>
+      <label
+        class="input search filters"
+        style="display: flex; align-items: center; gap: 8px; flex: 1 1 220px"
+      >
+        <ui-icon name="search" [size]="16" />
+        <span class="sr-only">Поиск по структуре</span>
+        <input
+          type="search"
+          style="flex: 1; border: 0; background: transparent; outline: none"
+          placeholder="Дирекция, процесс, владелец"
+          [value]="q()"
+          (input)="q.set($any($event.target).value)"
+        />
+      </label>
+    </div>
+
+    @for (d of dirs(); track d.name) {
+      <div class="dir">
+        <div class="row">
+          <h3 class="grow">{{ d.name }}</h3>
+          <span class="muted xs">сотрудников: {{ d.staff }}</span>
+        </div>
+        <label class="row small">
+          <span class="muted" style="width: 90px">Директор</span>
+          <span class="select grow">
+            <select
+              class="input mini-input"
+              (change)="setDirector(d.name, $any($event.target).value)"
+            >
+              <option value="" [selected]="!directorIdOf(d.name)">
+                {{ d.director || 'Не назначен' }}
+              </option>
+              @for (u of directors(); track u.id) {
+                <option [value]="u.id" [selected]="u.id === directorIdOf(d.name)">
+                  {{ u.fullName }}
+                </option>
+              }
+            </select>
+          </span>
+        </label>
+        @for (p of d.processes; track p.name) {
+          <div class="proc">
+            <span class="small">{{ p.name }}</span>
+            <label class="select">
+              <span class="sr-only">Владелец процесса {{ p.name }}</span>
+              <select
+                class="input mini-input"
+                (change)="setOwner(p.name, $any($event.target).value)"
+              >
+                <option value="" [selected]="!p.ownerId">{{ p.owner }} (нет учётной записи)</option>
+                @for (u of owners(); track u.id) {
+                  <option [value]="u.id" [selected]="u.id === p.ownerId">{{ u.fullName }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+        <form class="add" (submit)="$event.preventDefault(); addProcess(d.name)">
+          <label class="sr-only" [for]="'np-' + $index">Новый процесс дирекции {{ d.name }}</label>
+          <input
+            class="input grow"
+            [id]="'np-' + $index"
+            placeholder="Новый процесс"
+            [value]="newProc()[d.name] ?? ''"
+            (input)="setNewProc(d.name, $any($event.target).value)"
+          />
+          <button type="submit" class="btn btn--ghost btn--xs">Добавить</button>
+        </form>
+      </div>
+    }
+
+    <form class="add" (submit)="$event.preventDefault(); addDirectorate()">
+      <label class="sr-only" for="new-dir">Новая дирекция</label>
+      <input
+        class="input grow"
+        id="new-dir"
+        placeholder="Новая дирекция"
+        [value]="newDir()"
+        (input)="newDir.set($any($event.target).value)"
+      />
+      <button type="submit" class="btn btn--sm">Добавить дирекцию</button>
+    </form>
+  </section>
+
+  <section class="card block" aria-labelledby="assets-title">
+    <div class="row">
+      <h2 id="assets-title">Объекты</h2>
+      <span class="tag">{{ dict.value()?.assets?.length ?? 0 }}</span>
+    </div>
+    <p class="muted small">
+      Стоимость часа простоя участвует в расчёте суммы последствий. При её изменении текущие оценки
+      связанных рисков пересчитываются техническими версиями.
+    </p>
+    <table aria-label="Объекты">
+      <thead>
+        <tr>
+          <th scope="col">Объект</th>
+          <th scope="col" style="width: 200px">Стоимость часа, ₽</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of dict.value()?.assets; track a.name) {
+          <tr>
+            <td class="small">{{ a.name }}</td>
+            <td>
+              <label class="sr-only" [for]="'cost-' + $index"
+                >Стоимость часа простоя: {{ a.name }}</label
+              >
+              <input
+                class="input mini-input"
+                [id]="'cost-' + $index"
+                inputmode="numeric"
+                [value]="a.hourlyDowntimeCost"
+                (change)="setCost(a.name, $any($event.target).value)"
+              />
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+    <form class="add" (submit)="$event.preventDefault(); addAsset()">
+      <label class="sr-only" for="na-name">Название объекта</label>
+      <input
+        class="input grow"
+        id="na-name"
+        placeholder="Название объекта"
+        [value]="newAsset().name"
+        (input)="newAsset.set({ name: $any($event.target).value, cost: newAsset().cost })"
+      />
+      <label class="sr-only" for="na-cost">Стоимость часа простоя, ₽</label>
+      <input
+        class="input"
+        id="na-cost"
+        style="width: 150px"
+        inputmode="numeric"
+        placeholder="₽ в час"
+        [value]="newAsset().cost"
+        (input)="newAsset.set({ name: newAsset().name, cost: $any($event.target).value })"
+      />
+      <button type="submit" class="btn btn--sm">Добавить</button>
+    </form>
+  </section>
+</div>

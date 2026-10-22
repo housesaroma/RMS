@@ -1,0 +1,110 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Справочники']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+</ui-page-header>
+
+<section class="card block" aria-label="Справочники рисков">
+  <div class="row">
+    <div class="chips" role="tablist" aria-label="Справочник">
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="kind() === 'hazards'"
+        (click)="kind.set('hazards')"
+      >
+        Опасности <span class="pill__count">{{ dict.value()?.hazards?.length }}</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="pill"
+        [attr.aria-selected]="kind() === 'categories'"
+        (click)="kind.set('categories')"
+      >
+        Категории рисков <span class="pill__count">{{ dict.value()?.categories?.length }}</span>
+      </button>
+    </div>
+    <span class="grow"></span>
+    <label
+      class="input search filters"
+      style="display: flex; align-items: center; gap: 8px; flex: 0 1 280px"
+    >
+      <ui-icon name="search" [size]="16" />
+      <span class="sr-only">Поиск по справочнику</span>
+      <input
+        type="search"
+        style="flex: 1; border: 0; background: transparent; outline: none"
+        placeholder="Поиск по названию"
+        [value]="q()"
+        (input)="q.set($any($event.target).value)"
+      />
+    </label>
+  </div>
+
+  @if (notice(); as n) {
+    <div
+      class="note"
+      [class.note--error]="n.error"
+      [class.note--hint]="!n.error"
+      [attr.role]="n.error ? 'alert' : 'status'"
+    >
+      <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+      <span class="grow">{{ n.text }}</span>
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set(null)"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+
+  <table [attr.aria-label]="kind() === 'hazards' ? 'Опасности' : 'Категории рисков'">
+    <thead>
+      <tr>
+        <th scope="col">Наименование</th>
+        <th scope="col" style="width: 160px">Статус</th>
+        <th scope="col" style="width: 160px"><span class="sr-only">Действия</span></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (x of items(); track x.name) {
+        <tr>
+          <td class="small" [class.muted]="x.off">{{ x.name }}</td>
+          <td>
+            <span class="state" [class.off]="x.off">{{ x.off ? 'Выключена' : 'Активна' }}</span>
+          </td>
+          <td class="actions">
+            <button type="button" class="btn btn--ghost btn--xs" (click)="toggle(x.name, !x.off)">
+              {{ x.off ? 'Включить' : 'Выключить' }}
+            </button>
+          </td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="3" class="empty">Ничего не найдено.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <form class="row" (submit)="$event.preventDefault(); add()">
+    <label class="sr-only" for="new-item">Новая запись</label>
+    <input
+      class="input grow"
+      id="new-item"
+      [placeholder]="kind() === 'hazards' ? 'Новая опасность' : 'Новая категория'"
+      [value]="draft()"
+      (input)="draft.set($any($event.target).value)"
+    />
+    <button type="submit" class="btn btn--sm">
+      <ui-icon name="plus" [size]="16" />Добавить запись
+    </button>
+  </form>
+</section>

@@ -20,6 +20,12 @@ export type Right =
   | 'accept_director_risk'
   | 'accept_ceo_risk'
   | 'close_risk'
+  | 'split_risk'
+  | 'transfer_risk'
+  | 'comment_treatment'
+  | 'view_report'
+  | 'export_report'
+  | 'import_data'
   | 'create_treatment'
   | 'execute_treatment'
   | 'edit_treatment'
@@ -138,6 +144,8 @@ export interface Dictionaries {
   ceo: string;
   /** Employees who may execute measures, by directorate. */
   staff: Record<string, string[]>;
+  /** Switched-off hazards and categories: hidden in new risks, kept on existing ones. */
+  disabled: string[];
 }
 
 export const LIKELIHOOD_NAMES = [
@@ -479,4 +487,61 @@ export interface ReportRecord {
   format: 'PDF' | 'CSV';
   by: string;
   status: 'READY' | 'FAILED';
+}
+
+// ── Administration ─────────────────────────────────────────────────────────
+
+export interface RightDef {
+  code: Right;
+  name: string;
+  group: string;
+}
+
+export interface RoleDef {
+  code: Role;
+  name: string;
+  desc: string;
+  active: boolean;
+}
+
+export interface RolesState {
+  roles: RoleDef[];
+  rights: RightDef[];
+  matrix: Record<Role, Right[]>;
+}
+
+export interface AdminUser extends User {
+  createdAt: string;
+}
+
+export interface NewUser {
+  fullName: string;
+  email: string;
+  position: string;
+  directorate: string;
+  roles: Role[];
+}
+
+export interface SettingsChange {
+  at: string;
+  by: string;
+  what: string;
+}
+
+export type ImportType = 'risks' | 'users' | 'assets';
+
+export interface ImportRecord {
+  id: string;
+  at: string;
+  by: string;
+  type: ImportType;
+  file: string;
+  total: number;
+  created: number;
+  errors: number;
+}
+
+export interface ImportResult {
+  record: ImportRecord;
+  errors: { row: number; message: string }[];
 }

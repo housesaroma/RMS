@@ -1,0 +1,184 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Роли и права']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+  <span class="grow"></span>
+  <button type="button" class="btn btn--soft btn--sm" (click)="exportMatrix()">
+    <ui-icon name="download" [size]="16" />Экспорт матрицы
+  </button>
+</ui-page-header>
+
+@if (data.value(); as d) {
+  <div class="layout">
+    <aside class="card block" aria-label="Системные роли">
+      @for (r of d.roles; track r.code) {
+        <div class="role" [class.sel]="selected() === r.code" [class.off]="!active()[r.code]">
+          <button
+            type="button"
+            class="linkish"
+            [attr.aria-pressed]="selected() === r.code"
+            (click)="selected.set(selected() === r.code ? null : r.code)"
+            title="Подсветить столбец роли в матрице"
+          >
+            <span class="tag">{{ r.code }}</span> {{ r.name }}
+          </button>
+          <span class="muted xs">{{ r.desc }}</span>
+          <span class="row xs">
+            <span class="muted">Прав: {{ rightsCount(r.code) }}</span>
+            <span class="grow"></span>
+            <button
+              type="button"
+              role="switch"
+              class="switch"
+              [attr.aria-checked]="active()[r.code]"
+              [disabled]="r.code === 'ADMIN'"
+              [attr.aria-label]="'Роль ' + r.name + ' активна'"
+              (click)="toggleActive(r.code)"
+            >
+              <span class="switch__track" aria-hidden="true"></span>
+            </button>
+          </span>
+          @if (r.code === 'ADMIN') {
+            <span class="muted xs">Роль нельзя выключить</span>
+          }
+        </div>
+      }
+    </aside>
+
+    <section class="card block" aria-labelledby="mx-title">
+      <div class="row">
+        <h2 id="mx-title">Матрица прав</h2>
+        <label
+          class="input search filters"
+          style="flex: 1 1 200px; display: flex; align-items: center; gap: 8px"
+        >
+          <ui-icon name="search" [size]="16" />
+          <span class="sr-only">Поиск права</span>
+          <input
+            type="search"
+            style="flex: 1; border: 0; background: transparent; outline: none"
+            placeholder="Право или код"
+            [value]="q()"
+            (input)="q.set($any($event.target).value)"
+          />
+        </label>
+        <button
+          type="button"
+          role="switch"
+          class="switch small"
+          [attr.aria-checked]="showCodes()"
+          (click)="showCodes.set(!showCodes())"
+        >
+          <span class="switch__track" aria-hidden="true"></span>Коды прав
+        </button>
+        @if (dirty()) {
+          <button type="button" class="btn btn--ghost btn--sm" (click)="cancel()">Отменить</button>
+        }
+        <button type="button" class="btn btn--sm" [disabled]="!dirty() || busy()" (click)="save()">
+          {{ busy() ? 'Сохраняем…' : 'Сохранить' }}
+        </button>
+      </div>
+      @if (notice(); as n) {
+        <div class="note" [class.note--error]="n.error" [class.note--hint]="!n.error" role="status">
+          <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" /><span class="grow">{{
+            n.text
+          }}</span>
+        </div>
+      }
+      <div class="scroll">
+        <table class="mx" aria-label="Матрица прав по ролям" style="min-width: 820px">
+          <thead>
+            <tr>
+              <th scope="col">Право</th>
+              @for (r of d.roles; track r.code) {
+                <th scope="col" [class.sel]="selected() === r.code" [title]="r.name">
+                  {{ r.code === 'RISK_SPECIALIST' ? 'RISK_SPEC' : r.code }}
+                </th>
+              }
+            </tr>
+          </thead>
+          <tbody>
+            @for (g of groups(); track g.name) {
+              <tr class="group">
+                <td [attr.colspan]="d.roles.length + 1">{{ g.name }}</td>
+              </tr>
+              @for (x of g.rights; track x.code) {
+                <tr>
+                  <th
+                    scope="row"
+                    class="small"
+                    style="
+                      text-transform: none;
+                      letter-spacing: 0;
+                      color: var(--text);
+                      font-weight: 400;
+                    "
+                  >
+                    {{ x.name }}
+                    @if (showCodes()) {
+                      <code>{{ x.code }}</code>
+                    }
+                  </th>
+                  @for (r of d.roles; track r.code) {
+                    <td [class.sel]="selected() === r.code">
+                      <button
+                        type="button"
+                        class="cell"
+                        [class.on]="has(r.code, x.code)"
+                        [class.dirty]="changed(r.code, x.code)"
+                        [disabled]="r.code === 'ADMIN'"
+                        [attr.aria-pressed]="has(r.code, x.code)"
+                        [attr.aria-label]="r.code + ': ' + x.name"
+                        [title]="
+                          r.code === 'ADMIN'
+                            ? 'ADMIN получает всё через право admin'
+                            : has(r.code, x.code)
+                              ? 'Снять право'
+                              : 'Назначить право'
+                        "
+                        (click)="toggle(r.code, x.code)"
+                      >
+                        @if (has(r.code, x.code)) {
+                          <ui-icon name="check" [size]="14" />
+                        }
+                      </button>
+                    </td>
+                  }
+                </tr>
+              }
+            } @empty {
+              <tr>
+                <td [attr.colspan]="d.roles.length + 1" class="empty">
+                  Такого права нет в системном справочнике.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="muted xs">
+        Нажмите на ячейку, чтобы назначить или снять право, затем «Сохранить». Изменённые ячейки
+        обведены.
+      </p>
+    </section>
+  </div>
+
+  <section class="card block" aria-labelledby="rules-title">
+    <h2 id="rules-title">Как действуют права</h2>
+    <div class="rules">
+      @for (r of rules; track $index) {
+        <div class="rule">
+          <b aria-hidden="true">{{ $index + 1 }}</b>
+          <div>
+            <h3>{{ r[0] }}</h3>
+            <p class="muted small">{{ r[1] }}</p>
+          </div>
+        </div>
+      }
+    </div>
+  </section>
+} @else {
+  <section class="card block empty" aria-busy="true">Загружаем роли…</section>
+}

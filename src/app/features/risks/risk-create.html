@@ -44,7 +44,7 @@
         <span class="select">
           <select class="input" [formField]="f.hazard">
             <option value="">Выберите опасность</option>
-            @for (h of dict.value()?.hazards; track h) {
+            @for (h of active(dict.value()?.hazards); track h) {
               <option [value]="h">{{ h }}</option>
             }
           </select>
@@ -59,7 +59,7 @@
         <span class="select">
           <select class="input" [formField]="f.category">
             <option value="">Выберите категорию</option>
-            @for (c of dict.value()?.categories; track c) {
+            @for (c of active(dict.value()?.categories); track c) {
               <option [value]="c">{{ c }}</option>
             }
           </select>

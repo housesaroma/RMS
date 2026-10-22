@@ -61,6 +61,11 @@ export class RiskCreate {
     this.processes().find((p) => p.name === this.model().process),
   );
 
+  protected active(list: string[] | undefined): string[] {
+    const off = this.dict.value()?.disabled ?? [];
+    return (list ?? []).filter((x) => !off.includes(x));
+  }
+
   protected close(): void {
     this.ref.close();
   }

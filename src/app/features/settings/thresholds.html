@@ -1,0 +1,136 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Пороги']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+  <span class="grow"></span>
+  <button
+    type="button"
+    class="btn btn--sm"
+    [disabled]="!dirty() || !!accError() || !!apprError() || busy()"
+    (click)="save()"
+  >
+    {{ busy() ? 'Сохраняем…' : 'Сохранить пороги' }}
+  </button>
+</ui-page-header>
+
+@if (notice(); as n) {
+  <div
+    class="note"
+    [class.note--error]="n.error"
+    [class.note--hint]="!n.error"
+    [attr.role]="n.error ? 'alert' : 'status'"
+  >
+    <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+    <span class="grow">{{ n.text }}</span>
+    <button
+      type="button"
+      class="icon-btn icon-btn--bare close"
+      aria-label="Скрыть сообщение"
+      (click)="notice.set(null)"
+    >
+      <ui-icon name="close" [size]="14" />
+    </button>
+  </div>
+}
+
+<div class="cols">
+  <section class="card block" aria-labelledby="acc-title">
+    <h2 id="acc-title">Принятие рисков</h2>
+    <p class="muted small">
+      Верхняя граница R для уровня. Выше порога CEO риск принять нельзя: уровень TREATMENT_REQUIRED,
+      только обработка.
+    </p>
+    <div class="inputs">
+      @for (k of keys; track k) {
+        <label class="field" [attr.data-level]="k.toUpperCase()">
+          <span class="level-text">{{ k.toUpperCase() }} · до R</span>
+          <input
+            class="input"
+            inputmode="numeric"
+            [value]="acc()[k]"
+            (input)="setAcc(k, $any($event.target).value)"
+          />
+        </label>
+      }
+    </div>
+    @if (accError()) {
+      <div class="field__error" role="alert">{{ accError() }}</div>
+    } @else {
+      <ui-heatmap [thresholds]="accValue()" />
+    }
+    <label class="check">
+      <input
+        type="checkbox"
+        [checked]="applyToActive()"
+        (change)="applyToActive.set(!applyToActive())"
+      />
+      Применить к активным рискам: пересчитать их уровень принятия
+    </label>
+  </section>
+
+  <section class="card block" aria-labelledby="appr-title">
+    <h2 id="appr-title">Согласование мер</h2>
+    <p class="muted small">
+      Нижняя граница плановой стоимости для уровня. Действует самый высокий достигнутый порог; ниже
+      порога OWNER согласование не нужно.
+    </p>
+    <div class="inputs">
+      @for (k of keys; track k) {
+        <label class="field" [attr.data-level]="k.toUpperCase()">
+          <span class="level-text">{{ k.toUpperCase() }} · от, ₽</span>
+          <input
+            class="input"
+            inputmode="numeric"
+            [value]="appr()[k]"
+            (input)="setAppr(k, $any($event.target).value)"
+          />
+        </label>
+      }
+    </div>
+    @if (apprError()) {
+      <div class="field__error" role="alert">{{ apprError() }}</div>
+    }
+    <div class="check-measure" [attr.data-level]="costLevel() === 'NONE' ? null : costLevel()">
+      <label class="field">
+        <span class="small strong">Проверить меру</span>
+        <span class="money">
+          <input
+            class="input"
+            inputmode="numeric"
+            placeholder="Например, 64 000"
+            [value]="cost()"
+            (input)="cost.set($any($event.target).value)"
+          />
+          <span aria-hidden="true">₽</span>
+        </span>
+      </label>
+      @if (costLevel(); as lv) {
+        <span class="small" aria-live="polite">
+          @if (lv === 'NONE') {
+            Согласование не требуется, мера сразу передаётся к выполнению.
+          } @else {
+            Согласует уровень <span class="level-chip" [attr.data-level]="lv">{{ lv }}</span>
+          }
+        </span>
+      }
+    </div>
+  </section>
+</div>
+
+<section class="card block" aria-labelledby="log-title">
+  <h2 id="log-title">История изменений настроек</h2>
+  <div class="log">
+    @for (c of changes.value(); track $index) {
+      <div>
+        <span class="muted">{{ date(c.at, true) }}</span
+        ><span
+          >{{ c.what }} <span class="muted">· {{ c.by }}</span></span
+        >
+      </div>
+    } @empty {
+      <p class="muted small">Изменений пока не было.</p>
+    }
+  </div>
+</section>

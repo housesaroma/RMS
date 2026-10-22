@@ -1,0 +1,116 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Методология']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+</ui-page-header>
+
+<section class="card block" aria-labelledby="m-title">
+  <div class="row">
+    <h2 id="m-title">Метод оценки</h2>
+    <span class="tag">Матрица рисков · R = L × I</span>
+    <span class="muted small"
+      >Метод в MVP один, R от 0 до 25. Если L или I равны 0, R = 0 и риск не попадает на карту
+      5×5.</span
+    >
+  </div>
+</section>
+
+<section class="card block" aria-labelledby="l-title">
+  <div class="row">
+    <h2 id="l-title">Шкала вероятности</h2>
+    <span class="muted small">названия и веса уровней фиксированы</span>
+  </div>
+  <div class="scale">
+    @for (name of likelihood; track $index) {
+      <div class="lvl">
+        <b>{{ $index }}</b
+        ><span class="small">{{ name }}</span>
+      </div>
+    }
+  </div>
+</section>
+
+<div class="cols">
+  <section class="card block" aria-labelledby="i-title">
+    <div class="row">
+      <h2 id="i-title">Денежная шкала тяжести</h2>
+    </div>
+    <p class="muted small">
+      Тяжесть не выбирают вручную: её считает система по сумме последствий. Для каждого уровня
+      задаётся включительная нижняя граница, пороги строго возрастают.
+    </p>
+    @if (notice(); as n) {
+      <div class="note" [class.note--error]="n.error" [class.note--hint]="!n.error" role="status">
+        <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" /><span class="grow">{{
+          n.text
+        }}</span>
+      </div>
+    }
+    <div>
+      <div class="money-row">
+        <span class="small">0 · {{ impact[0] }}</span>
+        <span class="muted small">от 0 ₽</span>
+        <span class="muted xs">{{ ranges()[0].text }}</span>
+      </div>
+      @for (k of [1, 2, 3, 4, 5]; track k) {
+        <div class="money-row">
+          <label class="small" [for]="'imp-' + k">{{ k }} · {{ impact[k] }}</label>
+          <span class="money">
+            <input
+              class="input mini-input"
+              [id]="'imp-' + k"
+              inputmode="numeric"
+              [value]="draft()[k - 1]"
+              (input)="set(k - 1, $any($event.target).value)"
+            />
+            <span aria-hidden="true">₽</span>
+          </span>
+          <span class="muted xs">{{ ranges()[k].text }}</span>
+        </div>
+      }
+    </div>
+    @if (error()) {
+      <div class="field__error" role="alert">{{ error() }}</div>
+    }
+    @if (confirm()) {
+      <div class="note note--hint" role="alertdialog" aria-labelledby="cf-title">
+        <ui-icon name="info" [size]="18" />
+        <span class="grow"
+          ><b id="cf-title">Сохранить пороги и пересчитать риски?</b> Для активных рисков с текущей
+          оценкой будут созданы технические версии с новой тяжестью. Принятые и закрытые не
+          меняются.</span
+        >
+        <button type="button" class="btn btn--ghost btn--xs" (click)="confirm.set(false)">
+          Вернуться к правке
+        </button>
+        <button type="button" class="btn btn--xs" [disabled]="busy()" (click)="save()">
+          Сохранить и пересчитать
+        </button>
+      </div>
+    } @else {
+      <div class="row">
+        <span class="grow"></span>
+        <button
+          type="button"
+          class="btn btn--sm"
+          [disabled]="!dirty() || !!error()"
+          (click)="confirm.set(true)"
+        >
+          Сохранить
+        </button>
+      </div>
+    }
+  </section>
+
+  <section class="card block" aria-labelledby="hm-title">
+    <h2 id="hm-title">Матрица 5×5 и уровни принятия</h2>
+    <p class="muted small">
+      Цвет клетки — уровень принятия по R. Пороги уровней настраиваются во вкладке «Пороги».
+    </p>
+    @if (dict.value(); as d) {
+      <ui-heatmap [thresholds]="d.thresholds" />
+    }
+  </section>
+</div>

@@ -1,18 +1,27 @@
-import { Dictionaries, Right, RiskStatus, Role, User } from '../models';
+import { AdminUser, Dictionaries, Right, RightDef, RiskStatus, Role, RoleDef } from '../models';
 
 // Demo data from the approved prototype. Every account uses the same password.
 export const DEMO_PASSWORD = 'sur-demo-2026';
 
-// Default role rights from the analytics (03-roles-and-access), trimmed to what the UI uses.
+// Default role rights from the analytics (03-roles-and-access, rules 11–16).
 const EMPLOYEE: Right[] = [
   'view_risk',
   'create_risk',
   'comment_risk',
+  'comment_treatment',
   'create_treatment',
   'execute_treatment',
 ];
-const CEO: Right[] = ['view_risk', 'comment_risk', 'accept_ceo_risk', 'approve_ceo_treatment'];
-const RIGHTS: Record<Role, Right[]> = {
+const CEO: Right[] = [
+  'view_risk',
+  'comment_risk',
+  'comment_treatment',
+  'accept_ceo_risk',
+  'approve_ceo_treatment',
+  'view_report',
+  'export_report',
+];
+export const DEFAULT_MATRIX: Record<Role, Right[]> = {
   EMPLOYEE,
   OWNER: [
     ...EMPLOYEE,
@@ -23,13 +32,99 @@ const RIGHTS: Record<Role, Right[]> = {
     'edit_treatment',
     'assign_treatment_executor',
     'approve_owner_treatment',
+    'split_risk',
+    'transfer_risk',
+    'view_report',
+    'export_report',
   ],
-  DIRECTOR: ['view_risk', 'comment_risk', 'accept_director_risk', 'approve_director_treatment'],
+  DIRECTOR: [
+    'view_risk',
+    'comment_risk',
+    'comment_treatment',
+    'accept_director_risk',
+    'approve_director_treatment',
+    'view_report',
+    'export_report',
+  ],
   CEO,
   // Same rights as CEO (analytics 03, rule 15).
   RISK_SPECIALIST: CEO,
   ADMIN: ['admin'],
 };
+
+export const ROLE_DEFS: RoleDef[] = [
+  {
+    code: 'EMPLOYEE',
+    name: 'Сотрудник',
+    desc: 'Выявляет риски, может быть исполнителем меры',
+    active: true,
+  },
+  {
+    code: 'OWNER',
+    name: 'Владелец процесса',
+    desc: 'Оценивает и принимает риски своих процессов, работает с мерами',
+    active: true,
+  },
+  {
+    code: 'DIRECTOR',
+    name: 'Директор дирекции',
+    desc: 'Согласует меры и принимает риски уровня DIRECTOR',
+    active: true,
+  },
+  {
+    code: 'CEO',
+    name: 'Генеральный директор',
+    desc: 'Принимает риски уровня CEO, согласует ключевые меры',
+    active: true,
+  },
+  {
+    code: 'RISK_SPECIALIST',
+    name: 'Риск-менеджер',
+    desc: 'Те же права, что у CEO, по решению CEO',
+    active: true,
+  },
+  {
+    code: 'ADMIN',
+    name: 'Администратор',
+    desc: 'Пользователи, роли, справочники и настройки',
+    active: true,
+  },
+];
+
+export const RIGHT_DEFS: RightDef[] = [
+  { code: 'view_risk', name: 'Просмотр рисков', group: 'Риски' },
+  { code: 'create_risk', name: 'Создание риска', group: 'Риски' },
+  { code: 'edit_risk', name: 'Редактирование черновика и выбор режима', group: 'Риски' },
+  { code: 'assess_risk', name: 'Оценка и переоценка', group: 'Риски' },
+  { code: 'close_risk', name: 'Закрытие риска', group: 'Риски' },
+  { code: 'split_risk', name: 'Разделение риска', group: 'Риски' },
+  { code: 'transfer_risk', name: 'Передача риска', group: 'Риски' },
+  { code: 'comment_risk', name: 'Комментарии к рискам', group: 'Риски' },
+  { code: 'accept_owner_risk', name: 'Принятие уровня OWNER', group: 'Принятие' },
+  { code: 'accept_director_risk', name: 'Принятие уровня DIRECTOR', group: 'Принятие' },
+  { code: 'accept_ceo_risk', name: 'Принятие уровня CEO', group: 'Принятие' },
+  { code: 'create_treatment', name: 'Создание меры', group: 'Меры' },
+  { code: 'edit_treatment', name: 'Редактирование черновика меры', group: 'Меры' },
+  { code: 'execute_treatment', name: 'Смена статуса меры', group: 'Меры' },
+  { code: 'assign_treatment_executor', name: 'Назначение исполнителя', group: 'Меры' },
+  { code: 'comment_treatment', name: 'Комментарии к мерам', group: 'Меры' },
+  { code: 'approve_owner_treatment', name: 'Согласование уровня OWNER', group: 'Согласование' },
+  {
+    code: 'approve_director_treatment',
+    name: 'Согласование уровня DIRECTOR',
+    group: 'Согласование',
+  },
+  { code: 'approve_ceo_treatment', name: 'Согласование уровня CEO', group: 'Согласование' },
+  { code: 'view_report', name: 'Просмотр отчётов', group: 'Отчёты' },
+  { code: 'export_report', name: 'Выгрузка отчётов', group: 'Отчёты' },
+  { code: 'admin', name: 'Администрирование', group: 'Администрирование' },
+];
+
+/** Union of the rights of the user's active roles. */
+export function rightsOf(roles: Role[], matrix: Record<Role, Right[]>, defs: RoleDef[]): Right[] {
+  const active = roles.filter((r) => defs.find((d) => d.code === r)?.active);
+  return [...new Set(active.flatMap((r) => matrix[r] ?? []))];
+}
 
 const user = (
   id: string,
@@ -39,18 +134,19 @@ const user = (
   roles: Role[],
   directorate: string | null,
   blocked = false,
-): User => ({
+): AdminUser => ({
   id,
   fullName,
   email,
   position,
   roles,
-  rights: [...new Set(roles.flatMap((r) => RIGHTS[r]))],
+  rights: rightsOf(roles, DEFAULT_MATRIX, ROLE_DEFS),
+  createdAt: id <= 'U-010' ? '2026-03-02' : id <= 'U-012' ? '2026-04-15' : '2026-09-22',
   directorate,
   blocked,
 });
 
-export const USERS: User[] = [
+export const USERS: AdminUser[] = [
   user('U-001', 'Тихонов Максим Олегович', 'm.tikhonov@artsofte.example', '', ['ADMIN'], null),
   user(
     'U-002',
@@ -227,6 +323,7 @@ export const DICTIONARIES: Dictionaries = {
   },
   ceo: 'Смирнов Д. А.',
   // Employees who can be measure executors, by directorate (from the prototype).
+  disabled: [],
   staff: {
     Разработка: ['Соловьёв К. И.', 'Голубев А. И.', 'Иванова Е. С.', 'Ким Р. А.'],
     'Закупки и вендоры': ['Зайцев П. Н.', 'Сергеев В. И.', 'Орлова Н. П.'],

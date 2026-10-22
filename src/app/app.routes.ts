@@ -1,15 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard, roleGuard } from './core/auth';
 
-const ROOT = 'Система управления рисками';
-
-const section = (path: string, heading: string, crumbs: string[]) => ({
-  path,
-  title: `${heading} · СУР`,
-  loadComponent: () => import('./features/placeholder').then((m) => m.Placeholder),
-  data: { heading, crumbs },
-});
-
 export const routes: Routes = [
   {
     path: 'login',
@@ -53,7 +44,48 @@ export const routes: Routes = [
         title: 'Архив · СУР',
         loadComponent: () => import('./features/archive/archive').then((m) => m.Archive),
       },
-      { ...section('settings', 'Настройки', [ROOT, 'Настройки']), canMatch: [roleGuard('ADMIN')] },
+      {
+        path: 'settings',
+        canMatch: [roleGuard('ADMIN')],
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'users' },
+          {
+            path: 'users',
+            title: 'Пользователи · Настройки · СУР',
+            loadComponent: () => import('./features/settings/users').then((m) => m.Users),
+          },
+          {
+            path: 'roles',
+            title: 'Роли и права · Настройки · СУР',
+            loadComponent: () => import('./features/settings/roles').then((m) => m.Roles),
+          },
+          {
+            path: 'structure',
+            title: 'Структура · Настройки · СУР',
+            loadComponent: () => import('./features/settings/structure').then((m) => m.Structure),
+          },
+          {
+            path: 'guides',
+            title: 'Справочники · Настройки · СУР',
+            loadComponent: () => import('./features/settings/guides').then((m) => m.Guides),
+          },
+          {
+            path: 'method',
+            title: 'Методология · Настройки · СУР',
+            loadComponent: () => import('./features/settings/method').then((m) => m.Method),
+          },
+          {
+            path: 'thresholds',
+            title: 'Пороги · Настройки · СУР',
+            loadComponent: () => import('./features/settings/thresholds').then((m) => m.Thresholds),
+          },
+          {
+            path: 'import',
+            title: 'Импорт · Настройки · СУР',
+            loadComponent: () => import('./features/settings/import').then((m) => m.Import),
+          },
+        ],
+      },
     ],
   },
   { path: '**', redirectTo: '' },

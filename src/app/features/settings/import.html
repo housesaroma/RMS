@@ -1,0 +1,196 @@
+<ui-page-header
+  title="Настройки"
+  [crumbs]="['Система управления рисками', 'Настройки', 'Импорт']"
+  [subtitle]="note"
+>
+  <app-settings-tabs />
+  <span class="grow"></span>
+  @if (step() !== 1) {
+    <button type="button" class="btn btn--soft btn--sm" (click)="restart()">Новый импорт</button>
+  }
+</ui-page-header>
+
+<section class="card block" aria-label="Мастер импорта">
+  <ol class="steps" aria-label="Шаги импорта" style="list-style: none; margin: 0; padding: 0">
+    <li class="step" [class.on]="step() >= 1"><b>1</b>Что загрузить</li>
+    <li class="step" [class.on]="step() >= 2"><b>2</b>Файл и проверка</li>
+    <li class="step" [class.on]="step() >= 3"><b>3</b>Результат</li>
+  </ol>
+
+  @switch (step()) {
+    @case (1) {
+      <div class="types" role="radiogroup" aria-label="Что загрузить">
+        @for (t of types; track t.key) {
+          <button
+            type="button"
+            role="radio"
+            class="type"
+            [attr.aria-checked]="type() === t.key"
+            (click)="type.set(t.key)"
+          >
+            <h3>{{ t.name }}</h3>
+            <span class="muted small">{{ t.desc }}</span>
+          </button>
+        }
+      </div>
+      <div class="row">
+        <span class="grow"></span
+        ><button type="button" class="btn btn--sm" (click)="next()">
+          Далее<ui-icon name="arrow-right" [size]="16" />
+        </button>
+      </div>
+    }
+    @case (2) {
+      <div class="row">
+        <span class="small"
+          >Шаблон «{{ typeName() }}»: <span class="muted">{{ header().join('; ') }}</span></span
+        >
+        <span class="grow"></span>
+        <button type="button" class="btn btn--ghost btn--xs" (click)="downloadTemplate()">
+          <ui-icon name="download" [size]="14" />Скачать шаблон CSV
+        </button>
+      </div>
+      <div class="drop">
+        <ui-icon name="download" [size]="24" />
+        <span class="small">{{
+          file() ? 'Файл: ' + file() : 'Выберите заполненный файл CSV (до 2 МБ)'
+        }}</span>
+        <label class="btn btn--sm">
+          {{ file() ? 'Заменить файл' : 'Выбрать файл' }}
+          <input type="file" accept=".csv,text/csv" class="sr-only" (change)="pick($event)" />
+        </label>
+      </div>
+      @if (parseError()) {
+        <div class="field__error" role="alert">{{ parseError() }}</div>
+      }
+      @if (rows().length) {
+        <div class="small">
+          Строк к загрузке: <b>{{ rows().length }}</b
+          >. Сервер проверит каждую; корректные строки загрузятся, ошибочные попадут в отчёт.
+        </div>
+        <div class="scroll">
+          <table aria-label="Строки файла">
+            <thead>
+              <tr>
+                <th scope="col">№</th>
+                @for (h of header(); track h) {
+                  <th scope="col">{{ h }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of rows().slice(0, 8); track $index) {
+                <tr>
+                  <td class="muted small">{{ $index + 2 }}</td>
+                  @for (c of r; track $index) {
+                    <td class="small">{{ c }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        @if (rows().length > 8) {
+          <span class="muted xs">и ещё {{ rows().length - 8 }} строк</span>
+        }
+      }
+      @if (error()) {
+        <div class="field__error" role="alert">{{ error() }}</div>
+      }
+      <div class="row">
+        <button type="button" class="btn btn--ghost btn--sm" (click)="step.set(1)">Назад</button>
+        <span class="grow"></span>
+        <button
+          type="button"
+          class="btn btn--sm"
+          [disabled]="!rows().length || busy()"
+          (click)="load()"
+        >
+          {{ busy() ? 'Загружаем…' : 'Загрузить данные' }}
+        </button>
+      </div>
+    }
+    @case (3) {
+      @if (result(); as r) {
+        <div class="kpis">
+          <div class="kpi">
+            <span class="muted small">Строк в файле</span><b>{{ r.record.total }}</b>
+          </div>
+          <div class="kpi">
+            <span class="muted small">Загружено</span><b class="good">{{ r.record.created }}</b>
+          </div>
+          <div class="kpi">
+            <span class="muted small">С ошибками</span
+            ><b [class.danger]="r.record.errors">{{ r.record.errors }}</b>
+          </div>
+        </div>
+        @if (r.errors.length) {
+          <div class="row">
+            <h3>Ошибки проверки</h3>
+            <span class="grow"></span
+            ><button type="button" class="btn btn--ghost btn--xs" (click)="downloadErrors()">
+              Скачать отчёт CSV
+            </button>
+          </div>
+          <table aria-label="Ошибки проверки файла">
+            <thead>
+              <tr>
+                <th scope="col" style="width: 90px">Строка</th>
+                <th scope="col">Ошибка</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (e of r.errors; track $index) {
+                <tr>
+                  <td class="small">{{ e.row }}</td>
+                  <td class="small danger">{{ e.message }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        } @else {
+          <div class="note note--hint" role="status">
+            <ui-icon name="check" [size]="18" /><span>Все строки загружены без ошибок.</span>
+          </div>
+        }
+      }
+    }
+  }
+</section>
+
+<section class="card block" aria-labelledby="ih-title">
+  <h2 id="ih-title">История импортов</h2>
+  <table aria-label="История импортов">
+    <thead>
+      <tr>
+        <th scope="col">Дата</th>
+        <th scope="col">Файл</th>
+        <th scope="col">Тип</th>
+        <th scope="col">Результат</th>
+        <th scope="col">Автор</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (h of history.value(); track h.id) {
+        <tr>
+          <td class="small">{{ date(h.at, true) }}</td>
+          <td class="small">{{ h.file }}</td>
+          <td class="small">
+            {{ h.type === 'risks' ? 'Риски' : h.type === 'users' ? 'Пользователи' : 'Объекты' }}
+          </td>
+          <td class="small">
+            {{ h.created }} из {{ h.total }}
+            @if (h.errors) {
+              <span class="danger">, ошибок {{ h.errors }}</span>
+            }
+          </td>
+          <td class="small">{{ h.by }}</td>
+        </tr>
+      } @empty {
+        <tr>
+          <td colspan="5" class="empty">Импортов пока не было.</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+</section>
