@@ -23,6 +23,8 @@ import {
   canReopen,
   canComment,
   canCreateMeasure,
+  canEditMeasure,
+  canEditRisk,
   canTreat,
   impactOf,
   lossOf,
@@ -100,6 +102,11 @@ export function validateNewRisk(body: NewRisk, user: User, d: Dictionaries): str
   const isAdmin = user.rights.includes('admin');
   if (!isAdmin && !user.rights.includes('create_risk'))
     return 'Недостаточно прав для создания риска';
+  return validateRiskFields(body, user, d);
+}
+
+function validateRiskFields(body: NewRisk, user: User, d: Dictionaries): string | null {
+  const isAdmin = user.rights.includes('admin');
   if (
     !body.name.trim() ||
     !body.description.trim() ||
@@ -232,6 +239,62 @@ export function riskCard(all: RiskDetails[], id: string): RiskDetails | null {
 
 const event = (r: RiskDetails, user: User, now: string, text: string, kind: HistoryEvent['kind']) =>
   r.history.unshift({ at: now, text, by: shortName(user.fullName), role: roleOf(user), kind });
+
+/** UC-2-03: edits the passport of a draft. Returns an error or null. */
+export function updateRisk(
+  r: RiskDetails,
+  body: NewRisk,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const gate = canEditRisk(r, user, d);
+  if (!gate.ok) return gate.why;
+  const error = validateRiskFields(body, user, d);
+  if (error) return error;
+  const process = d.processes.find((p) => p.name === body.process)!;
+  Object.assign(r, {
+    name: body.name.trim(),
+    description: body.description.trim(),
+    hazard: body.hazard,
+    category: body.category,
+    process: process.name,
+    directorate: process.directorate,
+    owner: process.owner,
+    asset: body.asset || null,
+    top: body.top,
+  });
+  event(r, user, now, 'Паспорт черновика отредактирован', 'create');
+  return null;
+}
+
+/** Edits a draft measure; the approval level follows the new planned cost. */
+export function updateMeasure(
+  r: RiskDetails,
+  id: string,
+  body: NewMeasure,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const m = r.measures.find((x) => x.id === id);
+  if (!m) return 'Мера не найдена';
+  const gate = canEditMeasure(m, user, d);
+  if (!gate.ok) return gate.why;
+  if (!body.title.trim() || !body.dueDate || !(body.costPlanned >= 0))
+    return 'Заполните обязательные поля';
+  if (![r.process, ...r.secondary.map((p) => p.name)].includes(body.process))
+    return 'Выберите процесс, связанный с риском';
+  Object.assign(m, {
+    title: body.title.trim(),
+    description: body.description.trim(),
+    process: body.process,
+    dueDate: body.dueDate,
+    costPlanned: body.costPlanned,
+  });
+  event(r, user, now, `Мера ${id} отредактирована`, 'measure');
+  return null;
+}
 
 /** UC-2-04 and reassessment: a new assessment version makes the risk active. Returns an error or null. */
 export function assess(

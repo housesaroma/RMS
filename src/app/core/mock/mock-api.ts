@@ -54,6 +54,8 @@ import {
   riskCard,
   toCsv,
   toRisk,
+  updateMeasure,
+  updateRisk,
   validateNewRisk,
 } from './risks';
 import { seedRisks } from './seed';
@@ -288,6 +290,25 @@ const routes: [string, RegExp, Handler][] = [
     },
   ],
   ['GET', /^approvals$/, (req) => approvalsFor(risks, userFromToken(req), DICTIONARIES)],
+  [
+    'PATCH',
+    /^risks\/(R-\d+)$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        updateRisk(r, req.body as NewRisk, userFromToken(req), DICTIONARIES, now()),
+      ),
+  ],
+  [
+    'PATCH',
+    /^measures\/(М-\d+)$/,
+    (req, [mid]) => {
+      const owner =
+        risks.find((r) => r.measures.some((m) => m.id === mid)) ?? fail(404, 'Мера не найдена');
+      return mutate(req, owner.id, (r) =>
+        updateMeasure(r, mid, req.body as NewMeasure, userFromToken(req), DICTIONARIES, now()),
+      );
+    },
+  ],
   [
     'POST',
     /^measures\/(М-\d+)\/actions$/,

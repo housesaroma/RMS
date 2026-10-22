@@ -43,6 +43,14 @@ export class RisksApi {
   }
 
   // Card actions return the updated card.
+  update(id: string, body: NewRisk): Promise<RiskDetails> {
+    return firstValueFrom(this.http.patch<RiskDetails>(`${API}/risks/${id}`, body));
+  }
+
+  updateMeasure(measureId: string, body: NewMeasure): Promise<RiskDetails> {
+    return firstValueFrom(this.http.patch<RiskDetails>(`${API}/measures/${measureId}`, body));
+  }
+
   assess(id: string, body: AssessmentInput): Promise<RiskDetails> {
     return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/assessments`, body));
   }

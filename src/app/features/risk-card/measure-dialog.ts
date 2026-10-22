@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, FormRoot, form, maxLength, required, validate } from '@angular/forms/signals';
 import { errorMessage } from '../../core/api';
 import { rub } from '../../core/format';
-import { Dictionaries, MeasureStatus, RiskDetails } from '../../core/models';
+import { Dictionaries, Measure, MeasureStatus, RiskDetails } from '../../core/models';
 import { approvalLevel, approverOf } from '../../core/risk-rules';
 import { RisksApi } from '../../core/risks-api';
 import { Icon } from '../../ui/icon';
@@ -20,7 +20,11 @@ const SLOT: MeasureStatus[] = ['APPROVAL', 'APPROVED', 'PENDING', 'IN_PROGRESS']
 export class MeasureDialog {
   private readonly ref = inject<DialogRef<RiskDetails>>(DialogRef);
   private readonly api = inject(RisksApi);
-  private readonly data = inject<{ risk: RiskDetails; dict: Dictionaries }>(DIALOG_DATA);
+  private readonly data = inject<{ risk: RiskDetails; dict: Dictionaries; measure?: Measure }>(
+    DIALOG_DATA,
+  );
+  /** Set when a draft measure is edited instead of created. */
+  protected readonly measure = this.data.measure;
 
   protected readonly risk = this.data.risk;
   protected readonly dict = this.data.dict;
@@ -37,11 +41,11 @@ export class MeasureDialog {
   ];
 
   protected readonly model = signal({
-    title: '',
-    description: '',
-    process: this.risk.process,
-    dueDate: '',
-    cost: '',
+    title: this.measure?.title ?? '',
+    description: this.measure?.description ?? '',
+    process: this.measure?.process ?? this.risk.process,
+    dueDate: this.measure?.dueDate ?? '',
+    cost: this.measure ? this.measure.costPlanned.toLocaleString('ru-RU') : '',
   });
   protected readonly f = form(
     this.model,
@@ -62,18 +66,21 @@ export class MeasureDialog {
         action: async () => {
           this.error.set('');
           const m = this.model();
+          const body = {
+            title: m.title,
+            description: m.description,
+            process: m.process,
+            dueDate: m.dueDate,
+            costPlanned: this.costValue()!,
+          };
           try {
             this.ref.close(
-              await this.api.createMeasure(this.risk.id, {
-                title: m.title,
-                description: m.description,
-                process: m.process,
-                dueDate: m.dueDate,
-                costPlanned: this.costValue()!,
-              }),
+              await (this.measure
+                ? this.api.updateMeasure(this.measure.id, body)
+                : this.api.createMeasure(this.risk.id, body)),
             );
           } catch (e) {
-            this.error.set(errorMessage(e, 'Не удалось создать меру. Повторите попытку.'));
+            this.error.set(errorMessage(e, 'Не удалось сохранить меру. Повторите попытку.'));
           }
           return undefined;
         },

@@ -1,10 +1,17 @@
 <div class="dialog body">
   <div class="head">
     <div class="grow">
-      <h2 id="nr-title">Новый риск</h2>
-      <p class="muted lead">
-        Заполните паспорт риска. Он будет создан в статусе <ui-risk-status status="DRAFT" />
-      </p>
+      @if (editing; as r) {
+        <h2 id="nr-title">Риск {{ r.id }}</h2>
+        <p class="muted lead">
+          Редактирование паспорта, риск остаётся в статусе <ui-risk-status status="DRAFT" />
+        </p>
+      } @else {
+        <h2 id="nr-title">Новый риск</h2>
+        <p class="muted lead">
+          Заполните паспорт риска. Он будет создан в статусе <ui-risk-status status="DRAFT" />
+        </p>
+      }
     </div>
     <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
       <ui-icon name="close" [size]="16" />
@@ -131,7 +138,7 @@
     <div class="buttons">
       <button type="button" class="btn btn--ghost btn--sm" (click)="reset()">Сбросить</button>
       <button type="submit" class="btn btn--cta btn--sm" [disabled]="f().submitting()">
-        {{ f().submitting() ? 'Создаём…' : 'Создать' }}
+        {{ f().submitting() ? 'Сохраняем…' : editing ? 'Сохранить' : 'Создать' }}
       </button>
     </div>
   </form>

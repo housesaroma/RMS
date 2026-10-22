@@ -30,6 +30,7 @@ export type IconName =
   | 'gauge'
   | 'tasks'
   | 'check'
+  | 'edit'
   | 'grip';
 
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */

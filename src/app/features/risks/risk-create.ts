@@ -1,9 +1,9 @@
-import { DialogRef } from '@angular/cdk/dialog';
+import { DIALOG_DATA, DialogRef } from '@angular/cdk/dialog';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, FormRoot, form, maxLength, required } from '@angular/forms/signals';
 import { errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth';
-import { NewRisk, Risk } from '../../core/models';
+import { NewRisk, Risk, RiskDetails } from '../../core/models';
 import { RisksApi } from '../../core/risks-api';
 import { Icon } from '../../ui/icon';
 import { RiskStatusChip } from '../../ui/risk-status';
@@ -15,7 +15,9 @@ import { RiskStatusChip } from '../../ui/risk-status';
   styleUrl: './risk-create.scss',
 })
 export class RiskCreate {
-  private readonly ref = inject<DialogRef<Risk>>(DialogRef);
+  private readonly ref = inject<DialogRef<Risk | RiskDetails>>(DialogRef);
+  /** A draft to edit (UC-2-03); without it the dialog creates a new risk. */
+  protected readonly editing = inject<RiskDetails | null>(DIALOG_DATA, { optional: true });
   private readonly api = inject(RisksApi);
   private readonly auth = inject(AuthService);
 
@@ -30,7 +32,7 @@ export class RiskCreate {
       : all.filter((p) => p.directorate === this.auth.user()?.directorate);
   });
 
-  protected readonly model = signal<NewRisk>(empty());
+  protected readonly model = signal<NewRisk>(this.editing ? fromRisk(this.editing) : empty());
   protected readonly f = form(
     this.model,
     (p) => {
@@ -47,9 +49,13 @@ export class RiskCreate {
         action: async () => {
           this.error.set('');
           try {
-            this.ref.close(await this.api.create(this.model()));
+            this.ref.close(
+              await (this.editing
+                ? this.api.update(this.editing.id, this.model())
+                : this.api.create(this.model())),
+            );
           } catch (e) {
-            this.error.set(errorMessage(e, 'Не удалось создать риск. Повторите попытку.'));
+            this.error.set(errorMessage(e, 'Не удалось сохранить риск. Повторите попытку.'));
           }
           return undefined;
         },
@@ -71,7 +77,7 @@ export class RiskCreate {
   }
 
   protected reset(): void {
-    this.model.set(empty());
+    this.model.set(this.editing ? fromRisk(this.editing) : empty());
     this.f().reset();
     this.error.set('');
   }
@@ -91,4 +97,9 @@ function empty(): NewRisk {
     asset: '',
     top: false,
   };
+}
+
+function fromRisk(r: RiskDetails): NewRisk {
+  const { name, description, hazard, category, process, top } = r;
+  return { name, description, hazard, category, process, asset: r.asset ?? '', top };
 }

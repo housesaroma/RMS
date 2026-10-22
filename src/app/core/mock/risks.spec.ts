@@ -3,7 +3,7 @@ import { DICTIONARIES, USERS } from './db';
 import { seedRisks } from './seed';
 
 const RISKS = seedRisks();
-import { createRisk, filterRisks, pageRisks, validateNewRisk } from './risks';
+import { createRisk, filterRisks, pageRisks, updateRisk, validateNewRisk } from './risks';
 
 const q = (over: Partial<RiskQuery> = {}): RiskQuery => ({
   tab: 'all',
@@ -84,5 +84,25 @@ describe('mock risk registry', () => {
       author: 'Петров А. В.',
       createdAt: '2026-10-22',
     });
+  });
+
+  it('edits only drafts', () => {
+    const draft = structuredClone(RISKS.find((r) => r.status === 'DRAFT')!);
+    const active = structuredClone(RISKS.find((r) => r.status === 'ACTIVE')!);
+    const edit = (r: typeof draft) => ({
+      name: 'Новое имя',
+      description: r.description,
+      hazard: r.hazard,
+      category: r.category,
+      process: r.process,
+      asset: r.asset ?? '',
+      top: r.top,
+    });
+    const now = '2026-10-22T09:00:00Z';
+    expect(updateRisk(draft, edit(draft), user('U-001'), DICTIONARIES, now)).toBeNull();
+    expect(draft.name).toBe('Новое имя');
+    expect(updateRisk(active, edit(active), user('U-001'), DICTIONARIES, now)).toBe(
+      'Редактируется только черновик',
+    );
   });
 });

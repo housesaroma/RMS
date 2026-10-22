@@ -39,6 +39,11 @@
           <ui-icon name="archive" [size]="16" />Закрыть риск
         </button>
       }
+      @if (editGate().ok) {
+        <button type="button" class="btn btn--soft btn--sm" (click)="openEdit()">
+          <ui-icon name="edit" [size]="16" />Редактировать
+        </button>
+      }
       @if (r.status === 'DRAFT' || r.status === 'REASSESSMENT') {
         <span class="tip">
           <button
@@ -675,6 +680,22 @@
   <!-- CDK reuses the first context of a trigger, so read the measure fresh by id. -->
   @let m = measureById(ref.id);
   <div class="menu menu--wide" cdkMenu>
+    @if (m.status === 'DRAFT') {
+      @let edit = editMeasureGate(m);
+      <button
+        type="button"
+        class="menu__item menu__item--stack"
+        cdkMenuItem
+        [cdkMenuItemDisabled]="!edit.ok"
+        [attr.aria-disabled]="!edit.ok"
+        (cdkMenuItemTriggered)="openEditMeasure(m)"
+      >
+        <span>Редактировать</span>
+        @if (edit.why) {
+          <span class="menu__cap">{{ edit.why }}</span>
+        }
+      </button>
+    }
     @for (item of measureMenu(m); track item.action) {
       <button
         type="button"

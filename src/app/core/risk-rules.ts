@@ -334,3 +334,18 @@ export function endsCycle(action: MeasureAction, m: Measure, r: RiskDetails): bo
 
 /** Actions that need extra input or a confirmation before running. */
 export const ACTIONS_WITH_FORM: MeasureAction[] = ['reject', 'revoke', 'handover', 'finish'];
+
+/** UC-2-03: a draft is edited by the owner of its primary process or an admin. */
+export function canEditRisk(r: RiskDetails, u: User, d: Dictionaries): Gate {
+  if (r.status !== 'DRAFT') return deny('Редактируется только черновик');
+  if (!isAdmin(u) && !(has(u, 'edit_risk') && isPrimaryOwner(r, u, d)))
+    return deny(`Редактирует владелец основного процесса: ${r.owner}`);
+  return allow;
+}
+
+export function canEditMeasure(m: Measure, u: User, d: Dictionaries): Gate {
+  if (m.status !== 'DRAFT') return deny('Редактируется только мера в черновике');
+  if (!isAdmin(u) && !(has(u, 'edit_treatment') && isMeasureOwner(m, u, d)))
+    return deny(`Редактирует владелец процесса меры: ${processOf(m, d)?.owner ?? '—'}`);
+  return allow;
+}

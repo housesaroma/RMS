@@ -1,9 +1,10 @@
 <div class="dialog body">
   <div class="head">
     <div class="grow">
-      <h2 id="nm-title">Новая мера</h2>
+      <h2 id="nm-title">{{ measure ? 'Мера ' + measure.id : 'Новая мера' }}</h2>
       <p class="muted lead">
-        Мера к риску {{ risk.id }} «{{ risk.name }}». Создаётся в статусе «Черновик».
+        Мера к риску {{ risk.id }} «{{ risk.name }}».
+        {{ measure ? 'Редактирование черновика.' : 'Создаётся в статусе «Черновик».' }}
       </p>
     </div>
     <button type="button" class="icon-btn btn--ghost" aria-label="Закрыть окно" (click)="close()">
@@ -136,7 +137,7 @@
       <span class="muted xs grow">* обязательные поля</span>
       <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Отмена</button>
       <button type="submit" class="btn btn--sm" [disabled]="f().submitting()">
-        {{ f().submitting() ? 'Создаём…' : 'Создать' }}
+        {{ f().submitting() ? 'Сохраняем…' : measure ? 'Сохранить' : 'Создать' }}
       </button>
     </div>
   </form>

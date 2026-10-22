@@ -22,6 +22,8 @@ import {
   canAccept,
   canAssess,
   canClose,
+  canEditMeasure,
+  canEditRisk,
   canComment,
   canReopen,
   canCreateMeasure,
@@ -43,6 +45,7 @@ import { RiskStatusChip } from '../../ui/risk-status';
 import { AssessDialog } from './assess-dialog';
 import { CloseDialog } from './close-dialog';
 import { MeasureDialog } from './measure-dialog';
+import { RiskCreate } from '../risks/risk-create';
 
 type Tab = 'measures' | 'history' | 'comments';
 
@@ -125,6 +128,9 @@ export class RiskCard {
   protected readonly commentGate = computed(() => this.gate(() => canComment(this.auth.user()!)));
   protected readonly closeGate = computed(() =>
     this.gate((r) => canClose(r, this.auth.user()!, this.dict.value()!)),
+  );
+  protected readonly editGate = computed(() =>
+    this.gate((r) => canEditRisk(r, this.auth.user()!, this.dict.value()!)),
   );
   protected readonly reopenGate = computed(() =>
     this.gate((r) => canReopen(r, this.auth.user()!, this.dict.value()!)),
@@ -282,6 +288,10 @@ export class RiskCard {
     }));
   }
 
+  protected editMeasureGate(m: RiskDetails['measures'][number]): Gate {
+    return this.gate(() => canEditMeasure(m, this.auth.user()!, this.dict.value()!));
+  }
+
   protected async runMeasure(
     m: RiskDetails['measures'][number],
     item: { action: MeasureAction; ends: boolean },
@@ -389,6 +399,39 @@ export class RiskCard {
         if (!updated) return;
         this.risk.set(updated);
         this.notice.set({ text: 'Оценка сохранена, риск в статусе «Активен».', error: false });
+      });
+  }
+
+  protected openEdit(): void {
+    this.dialog
+      .open<RiskDetails>(RiskCreate, {
+        data: this.risk(),
+        width: '640px',
+        maxWidth: 'calc(100vw - 32px)',
+        panelClass: 'dialog-pane',
+        backdropClass: 'dialog-backdrop',
+        ariaLabelledBy: 'nr-title',
+      })
+      .closed.subscribe((updated) => {
+        if (!updated) return;
+        this.risk.set(updated);
+        this.notice.set({ text: 'Паспорт черновика сохранён.', error: false });
+      });
+  }
+
+  protected openEditMeasure(m: RiskDetails['measures'][number]): void {
+    this.dialog
+      .open<RiskDetails>(MeasureDialog, {
+        data: { risk: this.risk(), dict: this.dict.value(), measure: m },
+        width: '760px',
+        maxWidth: 'calc(100vw - 32px)',
+        backdropClass: 'dialog-backdrop',
+        ariaLabelledBy: 'nm-title',
+      })
+      .closed.subscribe((updated) => {
+        if (!updated) return;
+        this.risk.set(updated);
+        this.notice.set({ text: `Мера ${m.id} сохранена.`, error: false });
       });
   }
 
