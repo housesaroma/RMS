@@ -121,9 +121,9 @@
           [value]="query().directorate"
           (change)="patch({ directorate: $any($event.target).value || null })"
         >
-          <option value="">Все дирекции</option>
+          <option value="" [selected]="!query().directorate">Все дирекции</option>
           @for (d of dict.value()?.directorates; track d) {
-            <option [value]="d">{{ d }}</option>
+            <option [value]="d" [selected]="d === query().directorate">{{ d }}</option>
           }
         </select>
       </label>
@@ -134,10 +134,10 @@
           [value]="query().executor"
           (change)="patch({ executor: $any($event.target).value || null })"
         >
-          <option value="">Все исполнители</option>
-          <option value="—">Без исполнителя</option>
+          <option value="" [selected]="!query().executor">Все исполнители</option>
+          <option value="—" [selected]="query().executor === '—'">Без исполнителя</option>
           @for (e of executors(); track e) {
-            <option [value]="e">{{ e }}</option>
+            <option [value]="e" [selected]="e === query().executor">{{ e }}</option>
           }
         </select>
       </label>

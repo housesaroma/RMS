@@ -59,3 +59,20 @@ a {
     padding: 0 !important;
   }
 }
+
+// Report printing: only the report preview goes to paper.
+@media print {
+  body.print-report * {
+    visibility: hidden;
+  }
+  body.print-report .report-preview,
+  body.print-report .report-preview * {
+    visibility: visible;
+  }
+  body.print-report .report-preview {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    box-shadow: none;
+  }
+}

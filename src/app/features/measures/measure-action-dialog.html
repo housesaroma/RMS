@@ -53,7 +53,7 @@
               (change)="executor.set($any($event.target).value)"
             >
               @for (p of data.executors; track p) {
-                <option [value]="p">{{ p }}</option>
+                <option [value]="p" [selected]="p === executor()">{{ p }}</option>
               }
             </select>
           </span>

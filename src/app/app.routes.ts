@@ -44,6 +44,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/measures/measures').then((m) => m.Measures),
       },
       {
+        path: 'reports',
+        title: 'Отчёты · СУР',
+        loadComponent: () => import('./features/reports/reports').then((m) => m.Reports),
+      },
+      {
         path: 'archive',
         title: 'Архив · СУР',
         loadComponent: () => import('./features/archive/archive').then((m) => m.Archive),

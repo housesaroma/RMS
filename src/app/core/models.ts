@@ -457,3 +457,26 @@ export interface ArchivePage {
   all: number;
   lastClosedAt: string | null;
 }
+
+export interface ReportsData {
+  /** Measures handed over to an executor. */
+  assignments: (MeasureRow & { startedAt: string | null })[];
+  top: { risk: Risk; loss: number | null; done: number; total: number }[];
+  decisions: (HistoryEvent & {
+    riskId: string;
+    riskName: string;
+    directorate: string;
+    process: string;
+    score: number | null;
+  })[];
+}
+
+export interface ReportRecord {
+  id: string;
+  at: string;
+  title: string;
+  template: string;
+  format: 'PDF' | 'CSV';
+  by: string;
+  status: 'READY' | 'FAILED';
+}

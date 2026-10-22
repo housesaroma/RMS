@@ -37,9 +37,9 @@ import { Icon } from '../../ui/icon';
               [value]="reason()"
               (change)="reason.set($any($event.target).value)"
             >
-              <option value="">Выберите причину</option>
+              <option value="" [selected]="!reason()">Выберите причину</option>
               @for (r of reasons; track r) {
-                <option [value]="r">{{ r }}</option>
+                <option [value]="r" [selected]="r === reason()">{{ r }}</option>
               }
             </select>
           </span>

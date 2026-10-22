@@ -81,9 +81,9 @@
         [value]="query().directorate"
         (change)="patch({ directorate: $any($event.target).value || null })"
       >
-        <option value="">Все дирекции</option>
+        <option value="" [selected]="!query().directorate">Все дирекции</option>
         @for (d of dict.value()?.directorates; track d) {
-          <option [value]="d">{{ d }}</option>
+          <option [value]="d" [selected]="d === query().directorate">{{ d }}</option>
         }
       </select>
     </label>
@@ -94,9 +94,9 @@
         [value]="query().category"
         (change)="patch({ category: $any($event.target).value || null })"
       >
-        <option value="">Все категории</option>
+        <option value="" [selected]="!query().category">Все категории</option>
         @for (c of dict.value()?.categories; track c) {
-          <option [value]="c">{{ c }}</option>
+          <option [value]="c" [selected]="c === query().category">{{ c }}</option>
         }
       </select>
     </label>
@@ -107,9 +107,9 @@
         [value]="query().owner"
         (change)="patch({ owner: $any($event.target).value || null })"
       >
-        <option value="">Все владельцы</option>
+        <option value="" [selected]="!query().owner">Все владельцы</option>
         @for (o of owners(); track o) {
-          <option [value]="o">{{ o }}</option>
+          <option [value]="o" [selected]="o === query().owner">{{ o }}</option>
         }
       </select>
     </label>

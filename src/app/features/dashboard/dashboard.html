@@ -206,9 +206,9 @@
                     [value]="dir()"
                     (change)="dir.set($any($event.target).value)"
                   >
-                    <option value="">Все дирекции</option>
+                    <option value="" [selected]="!dir()">Все дирекции</option>
                     @for (x of d.directorates; track x.name) {
-                      <option [value]="x.name">{{ x.name }}</option>
+                      <option [value]="x.name" [selected]="x.name === dir()">{{ x.name }}</option>
                     }
                   </select>
                 </label>

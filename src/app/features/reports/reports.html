@@ -1,0 +1,514 @@
+<ui-page-header
+  title="Отчёты"
+  [crumbs]="['Система управления рисками', { label: 'Дашборд', link: '/dashboard' }, 'Отчёты']"
+  [subtitle]="note()"
+>
+  <div class="periods" role="tablist" aria-label="Виды отчётов">
+    @for (t of tabs; track t.key) {
+      <button
+        type="button"
+        role="tab"
+        class="period"
+        [attr.aria-selected]="current() === t.key"
+        (click)="setTab(t.key)"
+      >
+        {{ t.name }}
+      </button>
+    }
+  </div>
+  <span class="grow"></span>
+  <button type="button" class="btn btn--soft btn--sm" (click)="exportTab()">
+    <ui-icon name="download" [size]="16" />Скачать CSV
+  </button>
+  @if (current() !== 'sum') {
+    <button type="button" class="btn btn--sm" (click)="setTab('sum')">Сформировать отчёт</button>
+  }
+</ui-page-header>
+
+@if (data.error() && current() !== 'sum') {
+  <section class="card empty" role="alert">
+    <div class="empty__title">Не удалось загрузить отчёт. Повторите попытку</div>
+    <button type="button" class="btn btn--sm" (click)="data.reload()">Повторить</button>
+  </section>
+}
+
+@switch (current()) {
+  @case ('assign') {
+    <section class="card block" aria-label="Отчёт по поручениям">
+      <div class="chips" role="group" aria-label="Статус меры">
+        <button
+          type="button"
+          class="pill"
+          [attr.aria-selected]="!aStatus()"
+          (click)="aStatus.set('')"
+        >
+          Все <span class="pill__count">{{ assignCount('') }}</span>
+        </button>
+        @for (s of assignStatuses; track s) {
+          <button
+            type="button"
+            class="pill"
+            [attr.aria-selected]="aStatus() === s"
+            (click)="aStatus.set(s)"
+          >
+            {{ measureNames[s] }} <span class="pill__count">{{ assignCount(s) }}</span>
+          </button>
+        }
+      </div>
+      <div class="row filters">
+        <label class="input search">
+          <ui-icon name="search" [size]="18" />
+          <span class="sr-only">Поиск поручений</span>
+          <input
+            type="search"
+            placeholder="ID, мера, риск, исполнитель"
+            [value]="aQuery()"
+            (input)="aQuery.set($any($event.target).value)"
+          />
+        </label>
+        <label class="select filter">
+          <span class="sr-only">Дирекция</span>
+          <select class="input" [value]="aDir()" (change)="aDir.set($any($event.target).value)">
+            <option value="" [selected]="!aDir()">Все дирекции</option>
+            @for (d of dict.value()?.directorates; track d) {
+              <option [value]="d" [selected]="d === aDir()">{{ d }}</option>
+            }
+          </select>
+        </label>
+        <label class="select filter">
+          <span class="sr-only">Исполнитель</span>
+          <select class="input" [value]="aExec()" (change)="aExec.set($any($event.target).value)">
+            <option value="" [selected]="!aExec()">Все исполнители</option>
+            @for (e of executors(); track e) {
+              <option [value]="e" [selected]="e === aExec()">{{ e }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <div class="scroll">
+        <table aria-label="Поручения по мерам">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Поручение</th>
+              <th scope="col">Риск</th>
+              <th scope="col">Контролёр</th>
+              <th scope="col">Исполнитель</th>
+              <th scope="col">Начало</th>
+              <th scope="col">Срок</th>
+              <th scope="col">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of assignments(); track m.id) {
+              <tr>
+                <td class="muted small">{{ m.id }}</td>
+                <td>
+                  <span class="block strong">{{ m.title }}</span
+                  ><span class="muted xs block">{{ m.directorate }} · {{ m.process }}</span>
+                </td>
+                <td class="small">
+                  <a class="link" [routerLink]="['/risks', m.riskId]" [title]="m.riskName">{{
+                    m.riskId
+                  }}</a>
+                </td>
+                <td class="small">
+                  {{ m.owner }}<span class="muted xs block">владелец процесса</span>
+                </td>
+                <td class="small">{{ m.executor }}</td>
+                <td class="small muted">{{ date(m.startedAt) }}</td>
+                <td class="small">
+                  {{ date(m.dueDate) }}
+                  @if (late(m); as n) {
+                    <span class="late xs block">просрочено на {{ n }} дн.</span>
+                  }
+                </td>
+                <td><ui-measure-status [status]="m.status" /></td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="muted center">
+                  Поручений не найдено. Измените поиск или фильтры.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <div class="row muted small">
+        Найдено: {{ assignments().length }} ·
+        <span class="late">просрочено: {{ lateCount() }}</span>
+      </div>
+    </section>
+  }
+  @case ('top') {
+    <section class="card block" aria-label="Отчёт по топ-рискам">
+      <div class="row filters">
+        <label class="input search">
+          <ui-icon name="search" [size]="18" />
+          <span class="sr-only">Поиск топ-рисков</span>
+          <input
+            type="search"
+            placeholder="ID, название, процесс, владелец"
+            [value]="tQuery()"
+            (input)="tQuery.set($any($event.target).value)"
+          />
+        </label>
+      </div>
+      <div class="scroll">
+        <table aria-label="Топ-риски и статус мер">
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">Топ-риск</th>
+              <th scope="col">Дирекция / процесс</th>
+              <th scope="col">Владелец</th>
+              <th scope="col">Оценка</th>
+              <th scope="col">Сумма последствий</th>
+              <th scope="col">Статус</th>
+              <th scope="col">Меры</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (t of top(); track t.risk.id) {
+              <tr>
+                <td class="small">
+                  <a class="link" [routerLink]="['/risks', t.risk.id]">{{ t.risk.id }}</a
+                  ><span class="muted xs block">ISO {{ t.risk.iso }}</span>
+                </td>
+                <td>
+                  <a class="link strong" [routerLink]="['/risks', t.risk.id]">{{ t.risk.name }}</a
+                  ><span class="muted xs block">{{ t.risk.hazard }}</span>
+                </td>
+                <td class="small">
+                  {{ t.risk.directorate }}<span class="muted xs block">{{ t.risk.process }}</span>
+                </td>
+                <td class="small">{{ t.risk.owner }}</td>
+                <td>
+                  <ui-risk-score
+                    [likelihood]="t.risk.likelihood"
+                    [impact]="t.risk.impact"
+                    [status]="t.risk.status"
+                    [thresholds]="thresholds()"
+                  />
+                </td>
+                <td class="small">{{ t.loss != null ? rub(t.loss) : '—' }}</td>
+                <td><ui-risk-status [status]="t.risk.status" /></td>
+                <td class="small">
+                  готово {{ t.done }} из {{ t.total }}
+                  <span
+                    class="progress"
+                    role="progressbar"
+                    [attr.aria-valuenow]="t.total ? (t.done / t.total) * 100 : 0"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    [attr.aria-label]="'Выполнено мер: ' + t.done + ' из ' + t.total"
+                  >
+                    <span [style.width.%]="t.total ? (t.done / t.total) * 100 : 0"></span>
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="muted center">Топ-рисков не найдено.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="muted xs">
+        Готово N из M — выполненные меры текущего цикла; отменённые меры в M не входят. Сумма
+        последствий — по последней оценке.
+      </p>
+    </section>
+  }
+  @case ('dec') {
+    <section class="card block" aria-label="Решения по рискам">
+      <div class="row filters">
+        <label class="input search">
+          <ui-icon name="search" [size]="18" />
+          <span class="sr-only">Поиск по журналу решений</span>
+          <input
+            type="search"
+            placeholder="Риск, автор решения, текст"
+            [value]="dQuery()"
+            (input)="dQuery.set($any($event.target).value)"
+          />
+        </label>
+        <label class="select filter">
+          <span class="sr-only">Решение</span>
+          <select class="input" [value]="dKind()" (change)="dKind.set($any($event.target).value)">
+            <option value="" [selected]="!dKind()">Все решения</option>
+            @for (k of kinds; track k) {
+              <option [value]="k" [selected]="k === dKind()">{{ k }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <div class="scroll">
+        <table aria-label="Журнал решений по рискам">
+          <thead>
+            <tr>
+              <th scope="col">Дата</th>
+              <th scope="col">Риск</th>
+              <th scope="col">Решение</th>
+              <th scope="col">R</th>
+              <th scope="col">Кто</th>
+              <th scope="col">Запись</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of decisions(); track $index) {
+              <tr>
+                <td class="small">
+                  {{ date(e.at)
+                  }}<span class="muted xs block">{{ date(e.at, true).slice(11) }}</span>
+                </td>
+                <td class="small">
+                  <a class="link" [routerLink]="['/risks', e.riskId]">{{ e.riskId }}</a>
+                  {{ e.riskName
+                  }}<span class="muted xs block">{{ e.directorate }} · {{ e.process }}</span>
+                </td>
+                <td>
+                  <span class="tag">{{ kindOf(e.text) }}</span>
+                </td>
+                <td>
+                  @if (e.score != null) {
+                    <span class="level-chip" [attr.data-level]="level(e.score)">{{ e.score }}</span>
+                  }
+                </td>
+                <td class="small">
+                  {{ e.by }}<span class="muted xs block">{{ e.role }}</span>
+                </td>
+                <td class="small">{{ e.text }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="muted center">Решений не найдено.</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="muted xs">
+        {{ decisions().length }} записей. Режим работы выбирается один раз за цикл оценки.
+      </p>
+    </section>
+  }
+  @case ('sum') {
+    <div class="sum">
+      <section class="card block" aria-label="Предпросмотр отчёта">
+        <div class="row">
+          <h2>Предпросмотр</h2>
+          <span class="muted small">так отчёт будет выглядеть при печати в PDF</span>
+        </div>
+        @if (summary.value(); as d) {
+          <article class="report-preview">
+            <div class="paper__brand">
+              <span class="logo logo--sm" aria-hidden="true"
+                ><ui-icon name="shield" [size]="14"
+              /></span>
+              СУР · Artsofte<span class="grow"></span>{{ template() }}
+            </div>
+            <h3>{{ reportTitle() }}</h3>
+            <div class="muted xs">
+              {{ date(d.from) }} — {{ date(d.to) }} · Дирекции:
+              {{ dirs().length ? dirs().join(', ') : 'все' }}
+            </div>
+            @if (shown()['kpi']) {
+              <div class="kpi">
+                @for (s of d.statuses; track s.status) {
+                  <div>
+                    <span class="muted xs">{{
+                      s.status === 'all' ? 'Всего рисков' : riskNames[s.status]
+                    }}</span
+                    ><b>{{ s.n }}</b>
+                  </div>
+                }
+              </div>
+            }
+            <div class="two">
+              @if (shown()['heat']) {
+                <div>
+                  <div class="small strong">Heat-map 5×5</div>
+                  <div class="mini-heat">
+                    @for (l of [5, 4, 3, 2, 1]; track l) {
+                      @for (i of [1, 2, 3, 4, 5]; track i) {
+                        <span [attr.data-level]="level(l * i)">{{
+                          d.heat[l - 1][i - 1] || ''
+                        }}</span>
+                      }
+                    }
+                  </div>
+                  <div class="muted xs">строки — вероятность 5…1, столбцы — тяжесть 1…5</div>
+                </div>
+              }
+              @if (shown()['top']) {
+                <div>
+                  <div class="small strong">Топ-5 рисков по оценке</div>
+                  @for (r of topFive(); track r.id) {
+                    <div class="line small">
+                      <span class="muted">{{ r.id }}</span
+                      ><span class="grow clamp1">{{ r.name }}</span
+                      ><span class="level-chip" [attr.data-level]="level(r.assessment!.score)">{{
+                        r.assessment!.score
+                      }}</span>
+                    </div>
+                  } @empty {
+                    <div class="muted small">Оценённых топ-рисков нет.</div>
+                  }
+                </div>
+              }
+            </div>
+            @if (shown()['meas']) {
+              <div>
+                <div class="small strong">Статус мер</div>
+                @for (s of mitigStatuses; track s) {
+                  <div class="line small">
+                    <span class="grow">{{ measureNames[s] }}</span
+                    ><b>{{ d.mitigation[s] }}</b>
+                  </div>
+                }
+              </div>
+            }
+            <div class="paper__foot muted xs">
+              <span>СУР · {{ template() }}</span
+              ><span>Сформирован {{ date(d.to) }}</span>
+            </div>
+          </article>
+        } @else {
+          <p class="muted">Готовим предпросмотр…</p>
+        }
+      </section>
+
+      <div class="side">
+        <section class="card block" aria-label="Параметры отчёта">
+          <h2>Параметры отчёта</h2>
+          <label class="field">
+            <span class="muted small">Шаблон</span>
+            <span class="select">
+              <select
+                class="input"
+                [value]="template()"
+                (change)="template.set($any($event.target).value)"
+              >
+                @for (t of templates; track t) {
+                  <option [value]="t" [selected]="t === template()">{{ t }}</option>
+                }
+              </select>
+            </span>
+          </label>
+          <label class="field">
+            <span class="muted small">Период</span>
+            <span class="select">
+              <select
+                class="input"
+                [value]="period()"
+                (change)="period.set($any($event.target).value)"
+              >
+                @for (p of periods; track p.key) {
+                  <option [value]="p.key" [selected]="p.key === period()">{{ p.name }}</option>
+                }
+              </select>
+            </span>
+          </label>
+          <fieldset class="fs">
+            <legend class="muted small">Дирекции · {{ dirs().length || 'все' }}</legend>
+            <div class="chips">
+              <button
+                type="button"
+                class="pill"
+                [attr.aria-selected]="!dirs().length"
+                (click)="dirs.set([])"
+              >
+                Все
+              </button>
+              @for (d of allDirs(); track d) {
+                <button
+                  type="button"
+                  class="pill"
+                  [attr.aria-selected]="dirs().includes(d)"
+                  (click)="toggleDir(d)"
+                >
+                  {{ d }}
+                </button>
+              }
+            </div>
+          </fieldset>
+          <fieldset class="fs">
+            <legend class="muted small">Разделы отчёта</legend>
+            @for (s of sections; track s.key) {
+              <label class="check"
+                ><input
+                  type="checkbox"
+                  [checked]="shown()[s.key]"
+                  (change)="toggleSection(s.key)"
+                />{{ s.name }}</label
+              >
+            }
+          </fieldset>
+          <div class="field">
+            <span class="muted small">Формат</span>
+            <div class="chips" role="radiogroup" aria-label="Формат отчёта">
+              @for (f of ['PDF', 'CSV']; track f) {
+                <button
+                  type="button"
+                  role="radio"
+                  class="pill"
+                  [attr.aria-checked]="format() === f"
+                  [attr.aria-selected]="format() === f"
+                  (click)="format.set($any(f))"
+                >
+                  {{ f }}
+                </button>
+              }
+            </div>
+            <span class="field__hint">{{
+              format() === 'PDF'
+                ? 'Откроется печать: выберите «Сохранить как PDF».'
+                : 'Таблица с теми же показателями.'
+            }}</span>
+          </div>
+          <button
+            type="button"
+            class="btn btn--sm"
+            [disabled]="!canGenerate()"
+            (click)="generate()"
+          >
+            Сформировать
+          </button>
+          @if (!canGenerate()) {
+            <span class="field__error">Выберите хотя бы один раздел.</span>
+          }
+        </section>
+
+        <section class="card block" aria-label="История отчётов">
+          <div class="row">
+            <h2>История отчётов</h2>
+            <span class="count">{{ history.value()?.length ?? 0 }}</span>
+          </div>
+          @for (h of history.value(); track h.id) {
+            <div class="hist">
+              <div class="grow">
+                <div class="small strong">{{ h.title }}</div>
+                <div class="muted xs">{{ date(h.at, true) }} · {{ h.template }} · {{ h.by }}</div>
+                @if (h.status === 'FAILED') {
+                  <div class="late xs">Ошибка генерации. Повторите формирование.</div>
+                }
+              </div>
+              <span class="tag">{{ h.format }}</span>
+              <button
+                type="button"
+                class="icon-btn icon-btn--bare"
+                [attr.aria-label]="(h.status === 'FAILED' ? 'Повторить ' : 'Скачать ') + h.title"
+                (click)="output(h.format)"
+              >
+                <ui-icon [name]="h.status === 'FAILED' ? 'sort' : 'download'" [size]="16" />
+              </button>
+            </div>
+          }
+        </section>
+      </div>
+    </div>
+  }
+}

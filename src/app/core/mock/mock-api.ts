@@ -14,6 +14,7 @@ import {
   NewMeasure,
   NewRisk,
   Period,
+  ReportRecord,
   ResponseMode,
   RiskDetails,
 } from '../models';
@@ -36,6 +37,8 @@ import {
 } from './risks';
 import { seedRisks } from './seed';
 import { dashboard } from './dashboard';
+import { REPORT_HISTORY, reports } from './reports';
+import { shortName } from './risks';
 import { archivePage, parseArchiveQuery } from './archive';
 import { approvalsFor, pageMeasures, parseMeasureQuery, transitionMeasure } from './measures';
 
@@ -189,10 +192,12 @@ const routes: [string, RegExp, Handler][] = [
   [
     'GET',
     /^dashboard$/,
-    (req) => (
-      userFromToken(req),
-      dashboard(risks, (req.params.get('period') as Period) || 'quarter', DICTIONARIES)
-    ),
+    (req) => {
+      userFromToken(req);
+      const dirs = req.params.get('directorates')?.split(',');
+      const scope = dirs ? risks.filter((r) => dirs.includes(r.directorate)) : risks;
+      return dashboard(scope, (req.params.get('period') as Period) || 'quarter', DICTIONARIES);
+    },
   ],
   [
     'GET',
@@ -217,6 +222,25 @@ const routes: [string, RegExp, Handler][] = [
     'POST',
     /^risks\/(R-\d+)\/reopen$/,
     (req, [id]) => mutate(req, id, (r) => reopenRisk(r, userFromToken(req), DICTIONARIES, now())),
+  ],
+  ['GET', /^reports$/, (req) => reports(risks, userFromToken(req), DICTIONARIES)],
+  ['GET', /^reports\/history$/, (req) => (userFromToken(req), REPORT_HISTORY)],
+  [
+    'POST',
+    /^reports\/history$/,
+    (req) => {
+      const user = userFromToken(req);
+      const body = req.body as Pick<ReportRecord, 'title' | 'template' | 'format'>;
+      const record: ReportRecord = {
+        ...body,
+        id: `H-${Date.now()}`,
+        at: now(),
+        by: shortName(user.fullName),
+        status: 'READY',
+      };
+      REPORT_HISTORY.unshift(record);
+      return record;
+    },
   ],
   ['GET', /^approvals$/, (req) => approvalsFor(risks, userFromToken(req), DICTIONARIES)],
   [
