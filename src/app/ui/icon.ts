@@ -19,7 +19,17 @@ export type IconName =
 /** Decorative stroke icon from public/icons.svg; label the parent control instead. */
 @Component({
   selector: 'ui-icon',
-  template: `<svg aria-hidden="true" [attr.width]="size()" [attr.height]="size()">
+  // Paint attributes live here: <use> of an external sprite does not inherit them from its root.
+  template: `<svg
+    aria-hidden="true"
+    [attr.width]="size()"
+    [attr.height]="size()"
+    fill="none"
+    stroke="currentColor"
+    stroke-width="1.8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  >
     <use [attr.href]="'icons.svg#' + name()" />
   </svg>`,
   styles: `

@@ -1,9 +1,9 @@
 .page {
   min-height: 100vh;
-  padding: 20px;
+  padding: var(--gap);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--gap);
 }
 
 .muted {
@@ -17,13 +17,13 @@
 .topbar {
   display: flex;
   align-items: center;
-  gap: 14px;
-  height: 64px;
-  padding: 0 10px;
+  gap: 12px;
+  height: 56px;
+  padding: 0 8px;
 }
 
 .topbar__title {
-  font-size: 17px;
+  font-size: var(--fs-lg);
   font-weight: 500;
 }
 
@@ -37,19 +37,19 @@
   overflow: hidden;
 }
 
+// Three soft radial spots instead of a blurred conic gradient: no seam, no blur banding.
 .glow {
   display: none;
   position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 480px;
-  height: 480px;
-  transform: translate(-50%, -50%);
-  border-radius: 50%;
-  background: var(--brand-gradient);
-  filter: blur(100px);
-  opacity: 0.3;
+  inset: 0;
   pointer-events: none;
+  background:
+    radial-gradient(closest-side at 38% 46%, rgba(126, 109, 230, 0.26), transparent),
+    radial-gradient(closest-side at 52% 60%, rgba(102, 255, 76, 0.14), transparent),
+    radial-gradient(closest-side at 64% 44%, rgba(255, 122, 71, 0.22), transparent);
+  background-size: 640px 640px;
+  background-position: center;
+  background-repeat: no-repeat;
 
   :host-context([data-theme='dark']) & {
     display: block;
@@ -59,11 +59,11 @@
 .auth {
   position: relative;
   width: 100%;
-  max-width: 440px;
-  padding: 32px 28px 22px;
+  max-width: 400px;
+  padding: 28px 24px 20px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 
   :host-context([data-theme='dark']) & {
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
@@ -79,8 +79,8 @@
 }
 
 .lead {
-  margin: 12px 0 0;
-  font-size: var(--fs-lg);
+  margin: 10px 0 0;
+  font-size: var(--fs-md);
   line-height: 1.45;
 }
 
@@ -96,7 +96,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
   margin: 0;
 
   .check {
@@ -115,15 +115,15 @@
 }
 
 .input--icon {
-  padding-right: 52px;
+  padding-right: 48px;
 }
 
 .password__toggle {
   position: absolute;
-  right: 4px;
-  top: 30px;
-  width: 40px;
-  height: 40px;
+  right: 3px;
+  top: 27px;
+  width: 36px;
+  height: 36px;
   color: var(--muted);
 }
 

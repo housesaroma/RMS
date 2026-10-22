@@ -5,8 +5,8 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  height: 48px;
-  padding: 0 22px;
+  height: var(--ctl);
+  padding: 0 20px;
   border: 0;
   border-radius: var(--r-pill);
   background: var(--btn-bg);
@@ -40,7 +40,7 @@
 }
 
 .btn--sm {
-  height: 40px;
+  height: var(--ctl-sm);
   padding: 0 16px;
   font-size: var(--fs-md);
 }
@@ -50,8 +50,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: var(--nav-btn);
+  height: var(--nav-btn);
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -73,7 +73,7 @@
 .field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   font-size: var(--fs-md);
 }
 
@@ -89,8 +89,8 @@
 
 .input {
   width: 100%;
-  height: 48px;
-  padding: 0 16px;
+  height: var(--ctl);
+  padding: 0 14px;
   border-radius: var(--r-md);
   border: 1px solid var(--field-border);
   background: var(--field-bg);
@@ -168,8 +168,8 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: var(--avatar-bg);
   color: var(--avatar-fg);
@@ -182,9 +182,9 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
   background: var(--brand-gradient);
   color: #1a1a1a;
 }

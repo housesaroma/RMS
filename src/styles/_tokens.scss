@@ -16,7 +16,15 @@
   --fs-md: 14px;
   --fs-lg: 15px;
   --fs-xl: 20px;
-  --fs-display: 48px;
+  --fs-display: 40px;
+  --fs-hero: 52px;
+
+  // Density: control heights and layout rhythm.
+  --ctl: 42px;
+  --ctl-sm: 36px;
+  --nav-w: 64px;
+  --nav-btn: 42px;
+  --gap: 16px;
 
   --hero-gradient: linear-gradient(
     105deg,
