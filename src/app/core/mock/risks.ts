@@ -19,6 +19,8 @@ import {
 import {
   canAccept,
   canAssess,
+  canClose,
+  canReopen,
   canComment,
   canCreateMeasure,
   canTreat,
@@ -145,6 +147,9 @@ export function createRisk(
     asset: body.asset || null,
     createdAt: now.slice(0, 10),
     createdAtTime: now,
+    closedAt: null,
+    closeReason: null,
+    closedBy: null,
     likelihood: null,
     impact: null,
     status: 'DRAFT',
@@ -301,6 +306,55 @@ export function chooseMode(
       ? `Риск принят на уровне ${level}, R = ${r.assessment!.score}. Статус «Принят»`
       : `Выбран режим «Обработать»${level === 'TREATMENT_REQUIRED' ? ': риск уровня TREATMENT_REQUIRED принять нельзя' : ''}`,
     'mode',
+  );
+  return null;
+}
+
+/** Closes a risk: the current assessment becomes history, the reason is required. */
+export function closeRisk(
+  r: RiskDetails,
+  body: { reason: string; comment?: string },
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const gate = canClose(r, user, d);
+  if (!gate.ok) return gate.why;
+  if (!body.reason?.trim()) return 'Укажите причину закрытия';
+  const reason = body.reason.trim() + (body.comment?.trim() ? `: ${body.comment.trim()}` : '');
+  r.previous = r.assessment ?? r.previous;
+  r.assessment = null;
+  r.likelihood = null;
+  r.impact = null;
+  r.responseMode = null;
+  r.modeAt = null;
+  r.status = 'CLOSED';
+  r.closedAt = now;
+  r.closeReason = reason;
+  r.closedBy = shortName(user.fullName);
+  event(r, user, now, `Риск закрыт. Причина: ${reason}`, 'system');
+  return null;
+}
+
+/** Returns a risk from the archive with a system record; it needs a new assessment. */
+export function reopenRisk(
+  r: RiskDetails,
+  user: User,
+  d: Dictionaries,
+  now: string,
+): string | null {
+  const gate = canReopen(r, user, d);
+  if (!gate.ok) return gate.why;
+  r.status = r.previous ? 'REASSESSMENT' : 'DRAFT';
+  r.closedAt = null;
+  r.closeReason = null;
+  r.closedBy = null;
+  event(
+    r,
+    user,
+    now,
+    `Риск возвращён из архива в статус «${r.status === 'DRAFT' ? 'Черновик' : 'Ожидает переоценки'}»`,
+    'system',
   );
   return null;
 }

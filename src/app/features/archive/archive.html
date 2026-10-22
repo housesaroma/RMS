@@ -1,0 +1,260 @@
+<ui-page-header
+  title="Архив"
+  [crumbs]="['Система управления рисками', 'Архив']"
+  [subtitle]="subtitle()"
+>
+  <span class="grow"></span>
+  <button type="button" class="btn btn--soft btn--sm" (click)="exportAll()">
+    <ui-icon name="download" [size]="16" />Экспорт архива
+  </button>
+</ui-page-header>
+
+<section class="card registry" aria-label="Закрытые риски">
+  @if (notice(); as n) {
+    <div
+      class="note"
+      [class.note--error]="n.error"
+      [class.note--hint]="!n.error"
+      [attr.role]="n.error ? 'alert' : 'status'"
+    >
+      <ui-icon [name]="n.error ? 'error' : 'info'" [size]="18" />
+      <span class="grow">{{ n.text }}</span>
+      @if (n.id) {
+        <a class="btn btn--ghost btn--xs" [routerLink]="['/risks', n.id]">Открыть карточку</a>
+      }
+      <button
+        type="button"
+        class="icon-btn icon-btn--bare close"
+        aria-label="Скрыть сообщение"
+        (click)="notice.set(null)"
+      >
+        <ui-icon name="close" [size]="14" />
+      </button>
+    </div>
+  }
+
+  <div class="row filters">
+    <label class="input search">
+      <ui-icon name="search" [size]="18" />
+      <span class="sr-only">Поиск по названию или ID</span>
+      <input
+        type="search"
+        placeholder="Название или ID, например R-0118"
+        [value]="search()"
+        (input)="setSearch($any($event.target).value)"
+      />
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Опасность</span>
+      <select
+        class="input"
+        [value]="query().hazard"
+        (change)="patch({ hazard: $any($event.target).value || null })"
+      >
+        <option value="">Все опасности</option>
+        @for (h of dict.value()?.hazards; track h) {
+          <option [value]="h">{{ h }}</option>
+        }
+      </select>
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Категория</span>
+      <select
+        class="input"
+        [value]="query().category"
+        (change)="patch({ category: $any($event.target).value || null })"
+      >
+        <option value="">Все категории</option>
+        @for (c of dict.value()?.categories; track c) {
+          <option [value]="c">{{ c }}</option>
+        }
+      </select>
+    </label>
+    <label class="select filter">
+      <span class="sr-only">Владелец</span>
+      <select
+        class="input"
+        [value]="query().owner"
+        (change)="patch({ owner: $any($event.target).value || null })"
+      >
+        <option value="">Все владельцы</option>
+        @for (o of owners(); track o) {
+          <option [value]="o">{{ o }}</option>
+        }
+      </select>
+    </label>
+    <fieldset class="input period">
+      <legend class="sr-only">Дата закрытия</legend>
+      <ui-icon name="calendar" [size]="18" />
+      <label
+        ><span class="sr-only">Закрыт с</span>
+        <input
+          type="date"
+          [value]="query().from"
+          (change)="patch({ from: $any($event.target).value || null })"
+        />
+      </label>
+      <span aria-hidden="true">—</span>
+      <label
+        ><span class="sr-only">Закрыт по</span>
+        <input
+          type="date"
+          [value]="query().to"
+          (change)="patch({ to: $any($event.target).value || null })"
+        />
+      </label>
+    </fieldset>
+    <button type="button" class="btn btn--chip btn--xs" [disabled]="!filtered()" (click)="reset()">
+      <ui-icon name="close" [size]="14" />Сбросить
+    </button>
+  </div>
+
+  @if (list.error() && !data()) {
+    <div class="empty" role="alert">
+      <div class="empty__title">Не удалось загрузить архив. Повторите попытку</div>
+      <button type="button" class="btn btn--sm" (click)="list.reload()">Повторить</button>
+    </div>
+  } @else if (data(); as d) {
+    @if (d.items.length) {
+      <div class="scroll" [class.loading]="list.isLoading()">
+        <table aria-label="Закрытые риски">
+          <colgroup>
+            <col style="width: 64px" />
+            <col style="width: 52px" />
+            <col />
+            <col style="width: 170px" />
+            <col style="width: 120px" />
+            <col style="width: 110px" />
+            <col style="width: 92px" />
+            <col style="width: 92px" />
+            <col style="width: 170px" />
+            <col style="width: 44px" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th scope="col">ID</th>
+              <th scope="col">ISO</th>
+              <th scope="col">Название риска</th>
+              <th scope="col">Дирекция / процесс</th>
+              <th scope="col">Владелец</th>
+              <th scope="col">Последняя R</th>
+              <th scope="col">Создан</th>
+              <th scope="col">Закрыт</th>
+              <th scope="col">Причина</th>
+              <th scope="col"><span class="sr-only">Действия</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (r of d.items; track r.id) {
+              <tr>
+                <td class="muted small">{{ r.id }}</td>
+                <td class="muted small">{{ r.iso }}</td>
+                <td>
+                  <a class="link block" [routerLink]="['/risks', r.id]">{{ r.name }}</a>
+                  <span class="muted xs block">{{ r.hazard }}</span>
+                </td>
+                <td>
+                  <span class="block small">{{ r.directorate }}</span>
+                  <span class="muted xs block">{{ r.process }}</span>
+                </td>
+                <td class="small">{{ r.owner }}</td>
+                <td>
+                  @if (r.lastScore != null) {
+                    <span
+                      class="level-chip"
+                      [attr.data-level]="level(r.lastScore)"
+                      [title]="level(r.lastScore)"
+                      >R {{ r.lastScore }}</span
+                    >
+                  } @else {
+                    <span class="muted">—</span>
+                  }
+                </td>
+                <td class="muted small">{{ date(r.createdAt) }}</td>
+                <td class="small">{{ date(r.closedAt) }}</td>
+                <td class="small">
+                  {{ r.closeReason }}<span class="muted xs block">{{ r.closedBy }}</span>
+                </td>
+                <td class="actions">
+                  <button
+                    type="button"
+                    class="icon-btn icon-btn--bare"
+                    [attr.aria-label]="'Действия с риском ' + r.id"
+                    [cdkMenuTriggerFor]="rowMenu"
+                    [cdkMenuTriggerData]="{ $implicit: r }"
+                  >
+                    <ui-icon name="more" [size]="18" />
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <div class="empty">
+        <span class="empty__icon" aria-hidden="true"><ui-icon name="archive" [size]="24" /></span>
+        <div class="empty__title">{{ filtered() ? 'Ничего не найдено' : 'Архив пуст' }}</div>
+        @if (filtered()) {
+          <p class="muted">Измените запрос или сбросьте фильтры.</p>
+          <button type="button" class="btn btn--sm" (click)="reset()">Сбросить фильтры</button>
+        }
+      </div>
+    }
+
+    @if (d.total) {
+      <div class="row pager">
+        <span class="muted">{{
+          filtered()
+            ? 'Найдено: ' + d.total
+            : (d.page - 1) * d.pageSize +
+              1 +
+              '–' +
+              ((d.page - 1) * d.pageSize + d.items.length) +
+              ' из ' +
+              d.total
+        }}</span>
+        @if (lastPage() > 1) {
+          <nav aria-label="Страницы архива" class="pages">
+            <button
+              type="button"
+              class="icon-btn btn--ghost page"
+              aria-label="Предыдущая страница"
+              [disabled]="query().page <= 1"
+              (click)="patch({ page: '' + (query().page - 1) }, true)"
+            >
+              <ui-icon name="chevron-left" [size]="16" />
+            </button>
+            <span class="muted small">{{ query().page }} из {{ lastPage() }}</span>
+            <button
+              type="button"
+              class="icon-btn btn--ghost page"
+              aria-label="Следующая страница"
+              [disabled]="query().page >= lastPage()"
+              (click)="patch({ page: '' + (query().page + 1) }, true)"
+            >
+              <ui-icon name="chevron-right" [size]="16" />
+            </button>
+          </nav>
+        }
+      </div>
+    }
+  } @else {
+    <div class="empty muted" aria-busy="true">Загружаем архив…</div>
+  }
+</section>
+
+<ng-template #rowMenu let-r>
+  <div class="menu menu--wide" cdkMenu>
+    <a class="menu__item" cdkMenuItem [routerLink]="['/risks', r.id]">Открыть карточку</a>
+    <button
+      type="button"
+      class="menu__item menu__item--stack"
+      cdkMenuItem
+      (cdkMenuItemTriggered)="reopen(r)"
+    >
+      <span>Вернуть из архива</span>
+      <span class="menu__cap">Владелец процесса или администратор; риск уйдёт на переоценку</span>
+    </button>
+  </div>
+</ng-template>

@@ -17,6 +17,13 @@ const ASSETS: Record<string, string> = {
   'R-0151': 'Серверная офиса Екатеринбург',
 };
 
+const CLOSED_REASONS = [
+  'Меры выполнены',
+  'Риск неактуален',
+  'Меры выполнены',
+  'Объединён с другим риском',
+];
+
 // Active risks where the owner already chose to treat; the other active ones wait for a decision.
 const TREATED = ['R-0142', 'R-0144', 'R-0150', 'R-0127', 'R-0148', 'R-0097', 'R-0136', 'R-0149'];
 
@@ -203,6 +210,11 @@ export function seedRisks(): RiskDetails[] {
     const asset = ASSETS[id] ?? null;
     const a = l > 0 && i > 0 ? assessmentFor(row, asset) : null;
     const reassess = status === 'REASSESSMENT';
+    const closed = status === 'CLOSED';
+    // A closed risk keeps its last assessment only as history.
+    const noCurrent = reassess || closed;
+    const closeIdx = ROWS.filter((x) => x[9] === 'CLOSED').findIndex((x) => x[0] === id);
+    const closedAt = closed ? at(createdAt, '17:30', 40) : null;
     const mode: ResponseMode | null =
       status === 'ACCEPTED' || status === 'CLOSED'
         ? 'accept'
@@ -241,6 +253,15 @@ export function seedRisks(): RiskDetails[] {
         kind: 'mode',
       });
     }
+    if (closed) {
+      history.unshift({
+        at: closedAt!,
+        text: `Риск закрыт. Причина: ${CLOSED_REASONS[closeIdx % CLOSED_REASONS.length]}`,
+        by: p.owner,
+        role: 'Владелец процесса',
+        kind: 'system',
+      });
+    }
     if (reassess) {
       history.unshift({
         at: at(createdAt, '12:00', 20),
@@ -277,17 +298,20 @@ export function seedRisks(): RiskDetails[] {
       asset,
       createdAt,
       createdAtTime: created,
-      likelihood: reassess || !a ? null : l,
-      impact: reassess || !a ? null : i,
+      closedAt,
+      closeReason: closed ? CLOSED_REASONS[closeIdx % CLOSED_REASONS.length] : null,
+      closedBy: closed ? p.owner : null,
+      likelihood: noCurrent || !a ? null : l,
+      impact: noCurrent || !a ? null : i,
       status,
       top,
       author,
       authorPosition: proto?.authorPosition ?? 'Разработчик (backend)',
       secondary: (proto?.secondary ?? []).map((n) => PROCESS.get(n)!),
-      responseMode: reassess ? null : mode,
-      modeAt: mode && !reassess ? modeAt : null,
-      assessment: reassess ? null : a,
-      previous: reassess ? a : null,
+      responseMode: noCurrent ? null : mode,
+      modeAt: mode && !noCurrent ? modeAt : null,
+      assessment: noCurrent ? null : a,
+      previous: noCurrent ? a : null,
       measures: MEASURES.filter((m) => m.riskId === id).map(({ riskId: _, ...m }) => m),
       history,
       comments: (proto?.comments ?? []).map(([authorId, by, role, when, text], k) => ({

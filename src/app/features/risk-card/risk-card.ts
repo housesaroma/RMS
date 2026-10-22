@@ -21,7 +21,9 @@ import {
   approverOf,
   canAccept,
   canAssess,
+  canClose,
   canComment,
+  canReopen,
   canCreateMeasure,
   canTreat,
   ACTIONS_BY_STATUS,
@@ -39,6 +41,7 @@ import { PageHeader } from '../../ui/page-header';
 import { RiskScore } from '../../ui/risk-score';
 import { RiskStatusChip } from '../../ui/risk-status';
 import { AssessDialog } from './assess-dialog';
+import { CloseDialog } from './close-dialog';
 import { MeasureDialog } from './measure-dialog';
 
 type Tab = 'measures' | 'history' | 'comments';
@@ -120,6 +123,12 @@ export class RiskCard {
     this.gate((r) => canCreateMeasure(r, this.auth.user()!)),
   );
   protected readonly commentGate = computed(() => this.gate(() => canComment(this.auth.user()!)));
+  protected readonly closeGate = computed(() =>
+    this.gate((r) => canClose(r, this.auth.user()!, this.dict.value()!)),
+  );
+  protected readonly reopenGate = computed(() =>
+    this.gate((r) => canReopen(r, this.auth.user()!, this.dict.value()!)),
+  );
 
   /** Current assessment, or the previous one while the risk waits for reassessment. */
   protected readonly shown = computed(() => {
@@ -326,6 +335,30 @@ export class RiskCard {
   protected accept(): void {
     const r = this.risk()!;
     this.run(() => this.api.chooseMode(r.id, 'accept'), `Риск принят на уровне ${this.level()}.`);
+  }
+
+  protected reopen(): void {
+    const r = this.risk()!;
+    this.run(
+      () => this.api.reopen(r.id),
+      'Риск возвращён из архива. Нужна новая оценка владельца процесса.',
+    );
+  }
+
+  protected openClose(): void {
+    this.dialog
+      .open<RiskDetails>(CloseDialog, {
+        data: this.risk(),
+        width: '560px',
+        maxWidth: 'calc(100vw - 32px)',
+        backdropClass: 'dialog-backdrop',
+        ariaLabelledBy: 'cl-title',
+      })
+      .closed.subscribe((updated) => {
+        if (!updated) return;
+        this.risk.set(updated);
+        this.notice.set({ text: 'Риск закрыт и перенесён в архив.', error: false });
+      });
   }
 
   protected treat(): void {

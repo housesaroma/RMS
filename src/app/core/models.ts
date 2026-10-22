@@ -19,6 +19,7 @@ export type Right =
   | 'accept_owner_risk'
   | 'accept_director_risk'
   | 'accept_ceo_risk'
+  | 'close_risk'
   | 'create_treatment'
   | 'execute_treatment'
   | 'edit_treatment'
@@ -304,6 +305,9 @@ export interface RiskComment {
 
 export interface RiskDetails extends Risk {
   createdAtTime: string; // ISO datetime
+  closedAt: string | null;
+  closeReason: string | null;
+  closedBy: string | null;
   author: string;
   authorPosition: string;
   secondary: Process[];
@@ -416,4 +420,40 @@ export interface DashboardData {
     level: ApprovalLevel;
     sentAt: string;
   }[];
+}
+
+export const CLOSE_REASONS = [
+  'Меры выполнены',
+  'Риск неактуален',
+  'Объединён с другим риском',
+  'Другое',
+];
+
+/** A closed risk as listed in the archive. */
+export interface ArchiveRow extends Risk {
+  closedAt: string;
+  closeReason: string;
+  closedBy: string;
+  /** R of the last assessment, if there was one. */
+  lastScore: number | null;
+}
+
+export interface ArchiveQuery {
+  q: string;
+  hazard: string;
+  category: string;
+  owner: string;
+  from: string;
+  to: string;
+  page: number;
+}
+
+export interface ArchivePage {
+  items: ArchiveRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** All risks in the system, for "closed N of M". */
+  all: number;
+  lastClosedAt: string | null;
 }

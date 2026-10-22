@@ -17,6 +17,7 @@ const RIGHTS: Record<Role, Right[]> = {
   OWNER: [
     ...EMPLOYEE,
     'edit_risk',
+    'close_risk',
     'assess_risk',
     'accept_owner_risk',
     'edit_treatment',

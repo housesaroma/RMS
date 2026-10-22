@@ -43,7 +43,11 @@ export const routes: Routes = [
         title: 'Меры · СУР',
         loadComponent: () => import('./features/measures/measures').then((m) => m.Measures),
       },
-      section('archive', 'Архив', [ROOT, 'Архив']),
+      {
+        path: 'archive',
+        title: 'Архив · СУР',
+        loadComponent: () => import('./features/archive/archive').then((m) => m.Archive),
+      },
       { ...section('settings', 'Настройки', [ROOT, 'Настройки']), canMatch: [roleGuard('ADMIN')] },
     ],
   },

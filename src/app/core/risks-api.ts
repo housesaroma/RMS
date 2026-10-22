@@ -55,6 +55,16 @@ export class RisksApi {
     return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/comments`, { text }));
   }
 
+  close(id: string, reason: string, comment: string): Promise<RiskDetails> {
+    return firstValueFrom(
+      this.http.post<RiskDetails>(`${API}/risks/${id}/close`, { reason, comment }),
+    );
+  }
+
+  reopen(id: string): Promise<RiskDetails> {
+    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/reopen`, null));
+  }
+
   /** Bumped after measure changes so counters elsewhere (the approvals badge) refresh. */
   readonly measuresChanged = signal(0);
 

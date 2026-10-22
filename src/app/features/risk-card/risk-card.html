@@ -19,6 +19,26 @@
     </div>
 
     <div slot="aside" class="hero-actions">
+      @if (r.status === 'CLOSED') {
+        <span class="tip">
+          <button
+            type="button"
+            class="btn btn--sm"
+            [attr.aria-disabled]="!reopenGate().ok || busy()"
+            aria-describedby="reopen-tip"
+            (click)="reopenGate().ok && !busy() && reopen()"
+          >
+            <ui-icon name="archive" [size]="16" />Вернуть из архива
+          </button>
+          @if (reopenGate().why) {
+            <span id="reopen-tip" role="tooltip" class="tip__body">{{ reopenGate().why }}</span>
+          }
+        </span>
+      } @else if (closeGate().ok) {
+        <button type="button" class="btn btn--soft btn--sm" (click)="openClose()">
+          <ui-icon name="archive" [size]="16" />Закрыть риск
+        </button>
+      }
       @if (r.status === 'DRAFT' || r.status === 'REASSESSMENT') {
         <span class="tip">
           <button
@@ -91,6 +111,17 @@
       }
     </div>
   </ui-page-header>
+
+  @if (r.status === 'CLOSED') {
+    <div class="note" role="note">
+      <ui-icon name="archive" [size]="18" />
+      <span class="grow">
+        Риск закрыт {{ date(r.closedAt, true) }}. Причина: {{ r.closeReason }}. Возврат из архива
+        отправит риск на переоценку. Закрыл {{ r.closedBy }}
+      </span>
+      <a class="btn btn--ghost btn--xs" routerLink="/archive">В архив</a>
+    </div>
+  }
 
   @if (notice(); as n) {
     <div

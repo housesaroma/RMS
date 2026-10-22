@@ -151,6 +151,24 @@ export function canCreateMeasure(r: RiskDetails, u: User): Gate {
   return allow;
 }
 
+/** Closing (analytics 10): no measure in work or under approval; owner of the primary process or admin. */
+export function canClose(r: RiskDetails, u: User, d: Dictionaries): Gate {
+  if (r.status === 'CLOSED') return deny('Риск уже закрыт');
+  if (r.measures.some((m) => ACTIVE_MEASURES.includes(m.status)))
+    return deny('Есть меры на согласовании или в работе: завершите или отмените их');
+  if (!isAdmin(u) && !(has(u, 'close_risk') && isPrimaryOwner(r, u, d)))
+    return deny(`Закрывает владелец основного процесса: ${r.owner}`);
+  return allow;
+}
+
+/** Return from the archive: to reassessment, or back to draft if it was never assessed. */
+export function canReopen(r: RiskDetails, u: User, d: Dictionaries): Gate {
+  if (r.status !== 'CLOSED') return deny('Вернуть можно только закрытый риск');
+  if (!isAdmin(u) && !(has(u, 'edit_risk') && isPrimaryOwner(r, u, d)))
+    return deny(`Возвращает владелец процесса: ${r.owner}`);
+  return allow;
+}
+
 export function canComment(u: User): Gate {
   return has(u, 'comment_risk') ? allow : deny('Недостаточно прав для комментариев');
 }

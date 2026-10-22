@@ -23,6 +23,8 @@ import {
   addMeasure,
   assess,
   chooseMode,
+  closeRisk,
+  reopenRisk,
   createRisk,
   filterRisks,
   pageRisks,
@@ -34,15 +36,18 @@ import {
 } from './risks';
 import { seedRisks } from './seed';
 import { dashboard } from './dashboard';
+import { archivePage, parseArchiveQuery } from './archive';
 import { approvalsFor, pageMeasures, parseMeasureQuery, transitionMeasure } from './measures';
 
 type Handler = (req: HttpRequest<unknown>, params: string[]) => unknown;
 
 // Everything changed in the demo survives a page reload; bump the key when the seed changes shape.
-const STORE = 'rms.mock.v4';
+const STORE = 'rms.mock.v5';
 const risks: RiskDetails[] = (() => {
   try {
-    ['rms.mock.risks', 'rms.mock.v2', 'rms.mock.v3'].forEach((k) => localStorage.removeItem(k));
+    ['rms.mock.risks', 'rms.mock.v2', 'rms.mock.v3', 'rms.mock.v4'].forEach((k) =>
+      localStorage.removeItem(k),
+    );
     return (
       (JSON.parse(localStorage.getItem(STORE) ?? 'null') as RiskDetails[] | null) ?? seedRisks()
     );
@@ -188,6 +193,30 @@ const routes: [string, RegExp, Handler][] = [
       userFromToken(req),
       dashboard(risks, (req.params.get('period') as Period) || 'quarter', DICTIONARIES)
     ),
+  ],
+  [
+    'GET',
+    /^archive$/,
+    (req) => (userFromToken(req), archivePage(risks, parseArchiveQuery(req.params))),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/close$/,
+    (req, [id]) =>
+      mutate(req, id, (r) =>
+        closeRisk(
+          r,
+          req.body as { reason: string; comment?: string },
+          userFromToken(req),
+          DICTIONARIES,
+          now(),
+        ),
+      ),
+  ],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/reopen$/,
+    (req, [id]) => mutate(req, id, (r) => reopenRisk(r, userFromToken(req), DICTIONARIES, now())),
   ],
   ['GET', /^approvals$/, (req) => approvalsFor(risks, userFromToken(req), DICTIONARIES)],
   [
