@@ -1,0 +1,247 @@
+// Design tokens. Two themes: `dark` (default) and `glass` (frosted glass over a photo).
+// Components use these variables only, never raw colors.
+
+:root {
+  --font: 'Urbanist', 'Jost', system-ui, sans-serif;
+
+  --r-xs: 8px;
+  --r-sm: 12px;
+  --r-md: 16px;
+  --r-lg: 18px;
+  --r-xl: 28px;
+  --r-pill: 999px;
+
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 20px;
+  --fs-display: 48px;
+
+  --hero-gradient: linear-gradient(
+    105deg,
+    #4e43b8 0%,
+    #7e6de6 24%,
+    #79c25a 52%,
+    #c3c247 66%,
+    #ee8a4c 84%,
+    #ff7a47 100%
+  );
+  --brand-gradient: conic-gradient(from 200deg, #7e6de6, #66ff4c, #ff7a47, #7e6de6);
+}
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --page-bg: #222222;
+  --page-image: none;
+  --text: #ffffff;
+  --muted: #a6a6a6;
+  --line: rgba(255, 255, 255, 0.08);
+  --accent: #66ff4c;
+  --focus: #66ff4c;
+
+  --card-bg: #2a2a2a;
+  --card-border: rgba(255, 255, 255, 0.06);
+  --card-shadow: none;
+  --card-filter: none;
+  --inner-bg: #1f1f1f;
+
+  --bar-bg: #1a1a1a;
+  --bar-border: transparent;
+  --bar-filter: none;
+  --nav-bg: #2a2a2a;
+  --nav-fg: #f1f1f1;
+  --nav-active-bg: #66ff4c;
+  --nav-active-fg: #1a1a1a;
+
+  --hero-bg: var(--hero-gradient);
+  --hero-fg: #ffffff;
+  --hero-muted: rgba(255, 255, 255, 0.88);
+  --hero-soft-bg: rgba(255, 255, 255, 0.16);
+  --hero-soft-border: rgba(255, 255, 255, 0.22);
+  --hero-active-bg: #ffffff;
+  --hero-active-fg: #1a1a1a;
+
+  --btn-bg: #f1f1f1;
+  --btn-fg: #1a1a1a;
+  --ghost-bg: transparent;
+  --ghost-fg: #f1f1f1;
+  --ghost-border: rgba(255, 255, 255, 0.16);
+  --chip-bg: rgba(255, 255, 255, 0.08);
+  --chip-fg: #f1f1f1;
+
+  --field-bg: #1a1a1a;
+  --field-fg: #ffffff;
+  --field-border: rgba(255, 255, 255, 0.12);
+  --danger: #ff4d5e;
+  --danger-ring: rgba(255, 77, 94, 0.18);
+  --danger-bg: rgba(255, 77, 94, 0.12);
+  --danger-border: rgba(255, 77, 94, 0.35);
+  --danger-fg: #ff6b7a;
+
+  --menu-bg: #333333;
+  --menu-fg: #f1f1f1;
+  --menu-border: rgba(255, 255, 255, 0.08);
+  --avatar-bg: #f1f1f1;
+  --avatar-fg: #1a1a1a;
+
+  --good: #66ff4c;
+  --warn: #ff8f63;
+  --flat: #a6a6a6;
+  --chart: #ff7a47;
+  --track: rgba(255, 255, 255, 0.05);
+
+  // Acceptance levels by R = L × I
+  --lv-owner: #66ff4c;
+  --lv-owner-text: #66ff4c;
+  --lv-owner-on: #1a1a1a;
+  --lv-director: #ffd84d;
+  --lv-director-text: #ffd84d;
+  --lv-director-on: #1a1a1a;
+  --lv-ceo: #ff7a47;
+  --lv-ceo-text: #ff8f63;
+  --lv-ceo-on: #1a1a1a;
+  --lv-treatment: #ff4d5e;
+  --lv-treatment-text: #ff6b7a;
+  --lv-treatment-on: #1a1a1a;
+
+  // Risk statuses
+  --rs-draft-bg: rgba(255, 255, 255, 0.08);
+  --rs-draft-fg: #cfcfcf;
+  --rs-active-bg: #f1f1f1;
+  --rs-active-fg: #1a1a1a;
+  --rs-review-bg: rgba(255, 216, 77, 0.14);
+  --rs-review-fg: #ffd84d;
+  --rs-accepted-bg: rgba(102, 255, 76, 0.12);
+  --rs-accepted-fg: #66ff4c;
+  --rs-closed-bg: transparent;
+  --rs-closed-fg: #9c9c9c;
+  --rs-closed-border: rgba(255, 255, 255, 0.14);
+
+  // Measure statuses
+  --ms-draft-bg: rgba(255, 255, 255, 0.08);
+  --ms-draft-fg: #cfcfcf;
+  --ms-approval-bg: rgba(255, 216, 77, 0.14);
+  --ms-approval-fg: #ffd84d;
+  --ms-approved-bg: rgba(122, 184, 255, 0.14);
+  --ms-approved-fg: #8ec3ff;
+  --ms-pending-bg: rgba(255, 122, 71, 0.14);
+  --ms-pending-fg: #ff8f63;
+  --ms-progress-bg: rgba(160, 145, 255, 0.16);
+  --ms-progress-fg: #b7aaff;
+  --ms-hold-bg: transparent;
+  --ms-hold-fg: #a6a6a6;
+  --ms-hold-border: rgba(255, 255, 255, 0.22);
+  --ms-done-bg: rgba(102, 255, 76, 0.12);
+  --ms-done-fg: #66ff4c;
+  --ms-cancelled-bg: rgba(255, 77, 94, 0.14);
+  --ms-cancelled-fg: #ff6b7a;
+}
+
+[data-theme='glass'] {
+  color-scheme: light;
+
+  --page-bg: #cdb797;
+  --page-image: url('/img/backdrop.jpg');
+  --text: #111111;
+  --muted: #4a453f;
+  --line: rgba(17, 17, 17, 0.1);
+  --accent: #111111;
+  --focus: #111111;
+
+  --card-bg: rgba(255, 255, 255, 0.44);
+  --card-border: rgba(255, 255, 255, 0.65);
+  --card-shadow: 0 18px 50px rgba(90, 64, 30, 0.14);
+  --card-filter: blur(24px) saturate(140%);
+  --inner-bg: rgba(255, 255, 255, 0.5);
+
+  --bar-bg: rgba(255, 255, 255, 0.38);
+  --bar-border: rgba(255, 255, 255, 0.6);
+  --bar-filter: blur(20px);
+  --nav-bg: rgba(255, 255, 255, 0.55);
+  --nav-fg: #111111;
+  --nav-active-bg: #111111;
+  --nav-active-fg: #ffef9e;
+
+  --hero-bg: rgba(255, 255, 255, 0.3);
+  --hero-fg: #111111;
+  --hero-muted: #3e3a35;
+  --hero-soft-bg: rgba(255, 255, 255, 0.55);
+  --hero-soft-border: rgba(255, 255, 255, 0.85);
+  --hero-active-bg: #111111;
+  --hero-active-fg: #ffffff;
+
+  --btn-bg: #111111;
+  --btn-fg: #ffffff;
+  --ghost-bg: rgba(255, 255, 255, 0.4);
+  --ghost-fg: #111111;
+  --ghost-border: rgba(255, 255, 255, 0.85);
+  --chip-bg: rgba(255, 255, 255, 0.65);
+  --chip-fg: #111111;
+
+  --field-bg: rgba(255, 255, 255, 0.6);
+  --field-fg: #111111;
+  --field-border: rgba(255, 255, 255, 0.9);
+  --danger: #d93a4a;
+  --danger-ring: rgba(217, 58, 74, 0.18);
+  --danger-bg: #f3aeb6;
+  --danger-border: rgba(255, 255, 255, 0.8);
+  --danger-fg: #5c0f18;
+
+  --menu-bg: rgba(255, 255, 255, 0.94);
+  --menu-fg: #111111;
+  --menu-border: rgba(255, 255, 255, 0.9);
+  --avatar-bg: #111111;
+  --avatar-fg: #ffffff;
+
+  --good: #2c6b2f;
+  --warn: #9a3d12;
+  --flat: #4a453f;
+  --chart: #111111;
+  --track: rgba(17, 17, 17, 0.06);
+
+  --lv-owner: #baebb6;
+  --lv-owner-text: #23602b;
+  --lv-owner-on: #14361a;
+  --lv-director: #ffef9e;
+  --lv-director-text: #6b5200;
+  --lv-director-on: #4a3b00;
+  --lv-ceo: #f7c3a3;
+  --lv-ceo-text: #8a3410;
+  --lv-ceo-on: #5a220a;
+  --lv-treatment: #f3aeb6;
+  --lv-treatment-text: #8e1f2c;
+  --lv-treatment-on: #5c0f18;
+
+  --rs-draft-bg: rgba(255, 255, 255, 0.7);
+  --rs-draft-fg: #3e3a35;
+  --rs-active-bg: #111111;
+  --rs-active-fg: #ffffff;
+  --rs-review-bg: #ffef9e;
+  --rs-review-fg: #4a3b00;
+  --rs-accepted-bg: #baebb6;
+  --rs-accepted-fg: #14361a;
+  --rs-closed-bg: transparent;
+  --rs-closed-fg: #4a453f;
+  --rs-closed-border: rgba(17, 17, 17, 0.25);
+
+  --ms-draft-bg: rgba(255, 255, 255, 0.75);
+  --ms-draft-fg: #3e3a35;
+  --ms-approval-bg: #ffef9e;
+  --ms-approval-fg: #4a3b00;
+  --ms-approved-bg: #cfe0ff;
+  --ms-approved-fg: #12305c;
+  --ms-pending-bg: #f7c3a3;
+  --ms-pending-fg: #5a220a;
+  --ms-progress-bg: #dcd4ff;
+  --ms-progress-fg: #2e2363;
+  --ms-hold-bg: transparent;
+  --ms-hold-fg: #4a453f;
+  --ms-hold-border: rgba(17, 17, 17, 0.35);
+  --ms-done-bg: #baebb6;
+  --ms-done-fg: #14361a;
+  --ms-cancelled-bg: #f3aeb6;
+  --ms-cancelled-fg: #5c0f18;
+}
