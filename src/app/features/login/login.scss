@@ -43,13 +43,35 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  // Eased stops (not two-point linear) keep the falloff smooth on dark backgrounds.
   background:
-    radial-gradient(closest-side at 38% 46%, rgba(126, 109, 230, 0.26), transparent),
-    radial-gradient(closest-side at 52% 60%, rgba(102, 255, 76, 0.14), transparent),
-    radial-gradient(closest-side at 64% 44%, rgba(255, 122, 71, 0.22), transparent);
-  background-size: 640px 640px;
-  background-position: center;
-  background-repeat: no-repeat;
+    radial-gradient(
+      circle 420px at calc(50% - 170px) 44%,
+      rgba(126, 109, 230, 0.55),
+      rgba(126, 109, 230, 0.34) 22%,
+      rgba(126, 109, 230, 0.19) 42%,
+      rgba(126, 109, 230, 0.08) 60%,
+      rgba(126, 109, 230, 0.025) 76%,
+      rgba(126, 109, 230, 0) 90%
+    ),
+    radial-gradient(
+      circle 380px at 50% 64%,
+      rgba(102, 255, 76, 0.3),
+      rgba(102, 255, 76, 0.18) 22%,
+      rgba(102, 255, 76, 0.1) 42%,
+      rgba(102, 255, 76, 0.045) 60%,
+      rgba(102, 255, 76, 0.014) 76%,
+      rgba(102, 255, 76, 0) 90%
+    ),
+    radial-gradient(
+      circle 420px at calc(50% + 180px) 42%,
+      rgba(255, 122, 71, 0.48),
+      rgba(255, 122, 71, 0.3) 22%,
+      rgba(255, 122, 71, 0.17) 42%,
+      rgba(255, 122, 71, 0.075) 60%,
+      rgba(255, 122, 71, 0.022) 76%,
+      rgba(255, 122, 71, 0) 90%
+    );
 
   :host-context([data-theme='dark']) & {
     display: block;
