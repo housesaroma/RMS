@@ -354,7 +354,11 @@ async function saveDictionaries(c: Ctx, s: Snapshot, patch: Partial<Dictionaries
   }
   for (const p of patch.processes ?? []) {
     const cur = s.raw.processes.find((x) => x.processTitle === p.name);
-    const owner = p.ownerId ? backendId(p.ownerId) : null;
+    // Processes are owned by a person card, so the chosen user is translated to it.
+    const owner = p.ownerId
+      ? (s.raw.persons.find((x) => x.userId === backendId(p.ownerId!) && x.isPersonActive)
+          ?.personId ?? fail(422, `У владельца ${p.owner} нет карточки сотрудника на сервере`))
+      : null;
     if (!cur) {
       if (!owner) fail(422, 'Сервер создаёт процесс только вместе с владельцем');
       await call(c, 'POST', 'org/processes', {
@@ -381,7 +385,9 @@ async function saveDictionaries(c: Ctx, s: Snapshot, patch: Partial<Dictionaries
     for (const [dir, name] of Object.entries(patch.directors)) {
       if (d.directors[dir] === name || !name) continue;
       const u = s.state.users.find((x) => shortName(x.fullName) === name);
-      const person = s.raw.persons.find((p) => u && p.userId === backendId(u.id));
+      const person = s.raw.persons.find(
+        (p) => u && p.userId === backendId(u.id) && p.isPersonActive,
+      );
       if (!person) fail(422, `У пользователя ${name} нет карточки сотрудника на сервере`);
       // ponytail: responsibility type for a directorate head is assumed to be DIRECTOR.
       await call(c, 'POST', 'org/responsibilities', {
@@ -423,7 +429,7 @@ async function saveDictionaries(c: Ctx, s: Snapshot, patch: Partial<Dictionaries
 
 async function savePerson(c: Ctx, s: Snapshot, uid: number, position?: string, dir?: string) {
   if (position === undefined && dir === undefined) return;
-  const person = s.raw.persons.find((p) => p.userId === uid);
+  const person = s.raw.persons.find((p) => p.userId === uid && p.isPersonActive);
   const directorate = dir ? directorateId(s, dir) : undefined;
   if (person)
     await call(c, 'PUT', `org/persons/${person.personId}`, {

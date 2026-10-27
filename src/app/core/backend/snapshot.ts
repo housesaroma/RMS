@@ -45,6 +45,7 @@ export interface ProcessDto {
   processId: number;
   directorateId: number;
   processTitle: string | null;
+  /** Person card id (org.persons), not a user id. */
   ownerId: number;
   isProcessActive: boolean;
 }
@@ -288,7 +289,7 @@ function toDetails(x: RiskListItemDto): RiskDetails {
 export function build(raw: Raw, token: string): Snapshot {
   const dirName = (id: number | null | undefined) =>
     raw.directorates.find((d) => d.directorateId === id)?.directorateTitle ?? null;
-  const personOf = (uid: number) => raw.persons.find((p) => p.userId === uid);
+  const personOf = (uid: number) => raw.persons.find((p) => p.userId === uid && p.isPersonActive);
 
   const users: AdminUser[] = raw.users.map((u) => {
     const p = personOf(u.userId);
@@ -340,12 +341,15 @@ export function build(raw: Raw, token: string): Snapshot {
     hazards: raw.hazards.map((h) => h.hazardName ?? ''),
     processes: raw.processes
       .filter((p) => p.isProcessActive)
-      .map((p) => ({
-        name: p.processTitle ?? '',
-        directorate: dirName(p.directorateId) ?? '',
-        owner: name(p.ownerId),
-        ownerId: userId(p.ownerId),
-      })),
+      .map((p) => {
+        const owner = raw.persons.find((x) => x.personId === p.ownerId)?.userId;
+        return {
+          name: p.processTitle ?? '',
+          directorate: dirName(p.directorateId) ?? '',
+          owner: owner ? name(owner) : '—',
+          ownerId: owner ? userId(owner) : undefined,
+        };
+      }),
     assets: raw.assets
       .filter((a) => a.isAssetActive)
       .map((a) => ({ name: a.assetTitle ?? '', hourlyDowntimeCost: a.assetHourCost })),
