@@ -2,8 +2,13 @@ import { HttpErrorResponse } from '@angular/common/http';
 
 export const API = '/api';
 
-/** The backend is not reachable yet, so requests are served by core/mock. */
-export const USE_MOCKS = true;
+declare const RMS_BACKEND: boolean | undefined;
+
+/**
+ * Mocks serve the public demo; `ng serve` talks to the stand through the dev proxy.
+ * Set by `define` in angular.json.
+ */
+export const USE_MOCKS = typeof RMS_BACKEND === 'undefined' || !RMS_BACKEND;
 
 export function errorMessage(
   e: unknown,

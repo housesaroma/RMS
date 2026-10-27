@@ -1,0 +1,7 @@
+{
+  "/v1": {
+    "target": "http://185.32.85.146:8080",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

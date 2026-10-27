@@ -9,12 +9,13 @@ import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { routes } from './app.routes';
 import { USE_MOCKS } from './core/api';
 import { AuthService, authInterceptor } from './core/auth';
+import { backendApi } from './core/backend/backend-api';
 import { mockApi } from './core/mock/mock-api';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideHttpClient(withInterceptors(USE_MOCKS ? [authInterceptor, mockApi] : [authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, USE_MOCKS ? mockApi : backendApi])),
     provideRouter(routes, withComponentInputBinding()),
     provideAppInitializer(() => inject(AuthService).restore()),
   ],

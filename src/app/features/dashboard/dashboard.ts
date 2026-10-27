@@ -239,12 +239,12 @@ export class Dashboard {
   // ── Hero ──────────────────────────────────────────────────────────────────
   protected readonly greeting = computed(() => {
     const d = this.data.value();
-    const first = this.auth.user()?.fullName.split(' ')[1] ?? '';
+    const [last = '', first] = this.auth.user()?.fullName.split(' ') ?? [];
     const h = new Date().getHours();
     const hello = h < 12 ? 'Доброе утро' : h < 18 ? 'Добрый день' : 'Добрый вечер';
     return d
-      ? `${hello}, ${first}. ${d.attention.decision} рисков ждут решения о принятии, ${d.attention.measuresApproval} мер ждут согласования.`
-      : `${hello}, ${first}.`;
+      ? `${hello}, ${first ?? last}. ${d.attention.decision} рисков ждут решения о принятии, ${d.attention.measuresApproval} мер ждут согласования.`
+      : `${hello}, ${first ?? last}.`;
   });
 
   protected async exportCsv(): Promise<void> {

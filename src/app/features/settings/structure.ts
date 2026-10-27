@@ -67,8 +67,9 @@ export class Structure {
         name,
         director: d.directors[name] ?? '',
         processes: d.processes.filter((p) => p.directorate === name),
-        staff: (this.users.value() ?? []).filter((u) => u.directorate === name && !u.blocked)
-          .length,
+        staff: (this.users.hasValue() ? this.users.value() : []).filter(
+          (u) => u.directorate === name && !u.blocked,
+        ).length,
       }))
       .filter(
         (x) =>
@@ -83,10 +84,14 @@ export class Structure {
 
   /** Directors and owners are chosen among active users with the matching role. */
   protected readonly directors = computed(() =>
-    (this.users.value() ?? []).filter((u) => !u.blocked && u.roles.includes('DIRECTOR')),
+    (this.users.hasValue() ? this.users.value() : []).filter(
+      (u) => !u.blocked && u.roles.includes('DIRECTOR'),
+    ),
   );
   protected readonly owners = computed(() =>
-    (this.users.value() ?? []).filter((u) => !u.blocked && u.roles.includes('OWNER')),
+    (this.users.hasValue() ? this.users.value() : []).filter(
+      (u) => !u.blocked && u.roles.includes('OWNER'),
+    ),
   );
 
   private async save(patch: Partial<Dictionaries>, done: string): Promise<boolean> {

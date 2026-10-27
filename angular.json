@@ -29,10 +29,7 @@
                 "input": "public"
               }
             ],
-            "styles": [
-              "node_modules/@angular/cdk/overlay-prebuilt.css",
-              "src/styles.scss"
-            ]
+            "styles": ["node_modules/@angular/cdk/overlay-prebuilt.css", "src/styles.scss"]
           },
           "configurations": {
             "production": {
@@ -53,6 +50,14 @@
             "development": {
               "optimization": false,
               "extractLicenses": false,
+              "sourceMap": true,
+              "define": {
+                "RMS_BACKEND": "true"
+              }
+            },
+            "mock": {
+              "optimization": false,
+              "extractLicenses": false,
               "sourceMap": true
             }
           },
@@ -65,7 +70,11 @@
               "buildTarget": "rms:build:production"
             },
             "development": {
-              "buildTarget": "rms:build:development"
+              "buildTarget": "rms:build:development",
+              "proxyConfig": "proxy.conf.json"
+            },
+            "mock": {
+              "buildTarget": "rms:build:mock"
             }
           },
           "defaultConfiguration": "development"

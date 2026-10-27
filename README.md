@@ -15,12 +15,16 @@
 
 ```bash
 npm ci
-npm start          # http://localhost:4200
+npm start                  # http://localhost:4200, данные со стенда
+npx ng serve -c mock       # то же на моках, без бэкенда
 npm test -- --watch=false
-npm run build      # dist/rms/browser
+npm run build              # dist/rms/browser, сборка демо на моках
 ```
 
-Пока бэкенд в разработке, данные отдают моки.
+`npm start` ходит в API стенда через прокси dev-сервера (`proxy.conf.json`, префикс `/v1`).
+Слой `src/app/core/backend` переводит запросы экранов в вызовы API: ID, названия и DTO.
+Чего в API пока нет (дашборд, архив, отчёты), считается на клиенте по списку рисков.
+Продакшен-сборка (GitHub Pages) работает на моках из `src/app/core/mock`.
 
 ## Структура
 

@@ -24,6 +24,8 @@ export class Users {
   protected readonly note = noteOf('users');
 
   protected readonly list = resource({ loader: () => this.api.users() });
+  /** `value()` throws while the resource is in error, so screens read this instead. */
+  protected readonly all = computed(() => (this.list.hasValue() ? this.list.value() : []));
   protected readonly roleNames = ROLE_NAMES;
   protected readonly roleCodes = Object.keys(ROLE_NAMES) as Role[];
   protected readonly initials = initials;
@@ -36,7 +38,7 @@ export class Users {
 
   protected readonly rows = computed(() => {
     const q = this.q().trim().toLowerCase();
-    return (this.list.value() ?? []).filter(
+    return this.all().filter(
       (u) =>
         (!q || u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) &&
         (!this.role() || u.roles.includes(this.role() as Role)) &&
@@ -46,7 +48,7 @@ export class Users {
   });
 
   protected readonly kpis = computed(() => {
-    const all = this.list.value() ?? [];
+    const all = this.all();
     return [
       { label: 'Всего пользователей', n: all.length, note: 'включая заблокированных' },
       { label: 'Активных', n: all.filter((u) => !u.blocked).length, note: 'могут войти в систему' },
@@ -69,7 +71,7 @@ export class Users {
 
   /** CDK reuses the first menu context, so read the row fresh. */
   protected byId(id: string): AdminUserRow {
-    return this.list.value()!.find((u) => u.id === id)!;
+    return this.all().find((u) => u.id === id)!;
   }
 
   protected reset(): void {
