@@ -279,7 +279,7 @@ async function card(c: Ctx, id: string) {
   const s = await snapshot(c);
   const r = riskCard(s.state.risks, id) ?? fail(404, 'Риск не найден');
   const list = await opt(
-    call<CommentDto[]>(c, 'GET', `comments?entityType=risk&entityId=${backendId(id)}`),
+    call<CommentDto[]>(c, 'GET', `comments?entityType=Risk&entityId=${backendId(id)}`),
     [],
   );
   const author = (n: number) => s.state.users.find((u) => u.id === userId(n));
@@ -389,10 +389,12 @@ async function saveDictionaries(c: Ctx, s: Snapshot, patch: Partial<Dictionaries
         (p) => u && p.userId === backendId(u.id) && p.isPersonActive,
       );
       if (!person) fail(422, `У пользователя ${name} нет карточки сотрудника на сервере`);
-      // ponytail: responsibility type for a directorate head is assumed to be DIRECTOR.
+      if (person!.directorateId !== directorateId(s, dir))
+        fail(422, `${name} числится в другой дирекции: директор назначается внутри своей`);
+      // The directorate comes from the person card; directedId links persons, not directorates.
       await call(c, 'POST', 'org/responsibilities', {
         personId: person!.personId,
-        directedId: directorateId(s, dir),
+        directedId: null,
         responsibilityType: 'DIRECTOR',
       });
     }
@@ -444,18 +446,15 @@ async function savePerson(c: Ctx, s: Snapshot, uid: number, position?: string, d
     });
 }
 
+/** Creates the account; the server stores `responsibilityType` as the person's position. */
 async function createUser(c: Ctx, s: Snapshot, body: NewUser): Promise<number> {
   const { userId: id } = await call<{ userId: number }>(c, 'POST', 'users', {
     userFio: body.fullName.trim(),
     userEmail: body.email.trim(),
     roleIds: roleIds(s, body.roles),
     directorateId: body.directorate ? directorateId(s, body.directorate) : null,
+    responsibilityType: body.position?.trim() || null,
   });
-  if (body.position) {
-    // The server creates the person card itself; re-read it to set the position.
-    const persons = await call<Raw['persons']>(c, 'GET', 'org/persons');
-    await savePerson(c, { ...s, raw: { ...s.raw, persons } }, id, body.position);
-  }
   return id;
 }
 
@@ -644,7 +643,7 @@ const routes: [string, RegExp, Handler][] = [
     (c, [id]) =>
       mutate(c, id, () =>
         call(c, 'POST', 'comments', {
-          commentEntityType: 'risk',
+          commentEntityType: 'Risk',
           commentEntityId: backendId(id),
           commentText: (c.req.body as { text: string }).text.trim(),
         }),
@@ -672,7 +671,11 @@ const routes: [string, RegExp, Handler][] = [
       );
     },
   ],
-  ['POST', /^risks\/(R-\d+)\/reopen$/, async () => unsupported('Возврат риска из архива')],
+  [
+    'POST',
+    /^risks\/(R-\d+)\/reopen$/,
+    (c, [id]) => mutate(c, id, () => call(c, 'POST', `risks/${backendId(id)}/reset-reassessment`)),
+  ],
   [
     'GET',
     /^measures$/,
@@ -795,8 +798,15 @@ const routes: [string, RegExp, Handler][] = [
     async (c) => {
       const s = await admin(c);
       const id = await createUser(c, s, c.req.body as NewUser);
+      // The server keeps the generated password to itself and emails nothing yet; a reset issues one to show.
+      const { temporaryPassword } = await call<{ temporaryPassword: string }>(
+        c,
+        'POST',
+        `users/${id}/reset-password`,
+      );
       invalidate();
-      return (await snapshot(c)).state.users.find((u) => u.id === userId(id));
+      const user = (await snapshot(c)).state.users.find((u) => u.id === userId(id));
+      return { ...user, temporaryPassword };
     },
   ],
   [

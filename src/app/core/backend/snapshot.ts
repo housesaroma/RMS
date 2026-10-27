@@ -208,13 +208,14 @@ export function rightGroup(code: string): string {
 
 // ── Mapping ────────────────────────────────────────────────────────────────
 
+/** Backend risk statuses (Domain.Risk.RiskStatus names) → UI statuses. */
 const STATUS: Record<string, RiskStatus> = {
-  DRAFT: 'DRAFT',
-  ACTIVE: 'ACTIVE',
-  REASSESSMENT: 'REASSESSMENT',
-  AWAITING_REASSESSMENT: 'REASSESSMENT',
-  ACCEPTED: 'ACCEPTED',
-  CLOSED: 'CLOSED',
+  Draft: 'DRAFT',
+  Open: 'ACTIVE',
+  InTreatment: 'ACTIVE',
+  Accepted: 'ACCEPTED',
+  Closed: 'CLOSED',
+  AwaitingReassessment: 'REASSESSMENT',
 };
 
 /** Likelihood and impact come as a number or a level name. */
@@ -230,7 +231,7 @@ function levelOf(v: string | null, names: string[]): number | null {
 // shows what the list carries until the backend adds GET /v1/risks/{id}.
 function toDetails(x: RiskListItemDto): RiskDetails {
   const [process = '', ...rest] = x.processes ?? [];
-  const status = STATUS[(x.riskStatus ?? '').toUpperCase()] ?? 'DRAFT';
+  const status = STATUS[x.riskStatus ?? ''] ?? 'DRAFT';
   const l = levelOf(x.likelihood, LIKELIHOOD_NAMES),
     i = levelOf(x.impact, IMPACT_NAMES);
   const assessment =
@@ -275,7 +276,9 @@ function toDetails(x: RiskListItemDto): RiskDetails {
       directorate: x.directorates?.[k + 1] ?? '',
       owner: x.owners?.[k + 1] ?? '',
     })),
-    responseMode: status === 'ACCEPTED' ? 'accept' : null,
+    // ponytail: `treat` on an Open risk lives only in the assessment, which the list does not return.
+    responseMode:
+      x.riskStatus === 'Accepted' ? 'accept' : x.riskStatus === 'InTreatment' ? 'treat' : null,
     modeAt: null,
     assessment: waits ? null : assessment,
     previous: waits ? assessment : null,

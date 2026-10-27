@@ -111,7 +111,7 @@ const ROLES: Role[] = ['EMPLOYEE', 'OWNER', 'DIRECTOR', 'CEO', 'RISK_SPECIALIST'
   `,
 })
 export class UserDialog {
-  private readonly ref = inject<DialogRef<boolean>>(DialogRef);
+  private readonly ref = inject<DialogRef<boolean | string>>(DialogRef);
   private readonly api = inject(AdminApi);
   protected readonly user = inject<AdminUserRow | null>(DIALOG_DATA);
   private readonly dict = inject(RisksApi).dictionaries;
@@ -151,14 +151,18 @@ export class UserDialog {
       roles: this.picked(),
     };
     try {
-      if (this.user) await this.api.updateUser(this.user.id, body);
-      else
-        await this.api.createUser({
+      if (this.user) {
+        await this.api.updateUser(this.user.id, body);
+        this.ref.close(true);
+      } else {
+        const created = await this.api.createUser({
           ...body,
           email: this.email(),
           directorate: this.directorate(),
         });
-      this.ref.close(true);
+        // The password goes back to the list so the admin can hand it over.
+        this.ref.close(created.temporaryPassword ?? true);
+      }
     } catch (err) {
       this.error.set(errorMessage(err));
       this.busy.set(false);

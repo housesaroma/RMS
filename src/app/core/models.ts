@@ -512,6 +512,8 @@ export interface RolesState {
 
 export interface AdminUser extends User {
   createdAt: string;
+  /** Returned once on creation when the server issues the password instead of emailing it. */
+  temporaryPassword?: string;
 }
 
 export interface NewUser {

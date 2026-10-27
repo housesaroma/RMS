@@ -83,7 +83,7 @@ export class Users {
 
   protected open(user: AdminUserRow | null): void {
     this.dialog
-      .open<boolean>(UserDialog, {
+      .open<boolean | string>(UserDialog, {
         data: user,
         width: '600px',
         maxWidth: 'calc(100vw - 32px)',
@@ -95,7 +95,9 @@ export class Users {
         this.notice.set({
           text: user
             ? 'Изменения сохранены.'
-            : 'Пользователь создан, письмо с временным паролем отправлено.',
+            : typeof saved === 'string'
+              ? `Пользователь создан. Временный пароль: ${saved}. Передайте его пользователю, он покажется один раз.`
+              : 'Пользователь создан, письмо с временным паролем отправлено.',
           error: false,
         });
         this.list.reload();

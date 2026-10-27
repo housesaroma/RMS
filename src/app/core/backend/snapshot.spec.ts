@@ -68,7 +68,7 @@ describe('backend snapshot', () => {
             likelihood: '3',
             impact: 'Высокая',
             riskScore: 12,
-            riskStatus: 'Active',
+            riskStatus: 'Open',
             acceptanceLevel: 'DIRECTOR',
           },
         ],
