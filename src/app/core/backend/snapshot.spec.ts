@@ -38,6 +38,7 @@ const raw = (over: Partial<Raw> = {}): Raw => ({
   acceptance: null,
   approval: null,
   risks: [],
+  treatments: [],
   failed: {},
   ...over,
 });
@@ -70,6 +71,27 @@ describe('backend snapshot', () => {
             riskScore: 12,
             riskStatus: 'Open',
             acceptanceLevel: 'DIRECTOR',
+            riskProcessIds: [40],
+          },
+        ],
+        treatments: [
+          {
+            treatmentId: 5,
+            riskId: 12,
+            riskProcessId: 40,
+            treatmentTitle: 'Резервный канал',
+            treatmentDescription: null,
+            treatmentStatus: 'PendingApproval',
+            dueDate: '2026-12-01T00:00:00+00:00',
+            treatmentCostPlan: 60000,
+            treatmentCostAct: 0,
+            createdById: 8,
+            assigneeId: null,
+            createdAt: '2026-10-27T10:00:00+00:00',
+            updatedAt: null,
+            approvalRequestId: 3,
+            approvalRequiredLevel: 'Director',
+            approvalRequestStatus: 'Pending',
           },
         ],
       }),
@@ -83,6 +105,14 @@ describe('backend snapshot', () => {
       status: 'ACTIVE',
       likelihood: 3,
       impact: 4,
+    });
+    expect(s.state.risks[0].measures[0]).toMatchObject({
+      id: 'М-0005',
+      status: 'APPROVAL',
+      process: 'B2B',
+      dueDate: '2026-12-01',
+      costActual: null,
+      requests: [{ level: 'DIRECTOR', status: 'APPROVAL' }],
     });
     expect(backendId('R-0012')).toBe(12);
   });

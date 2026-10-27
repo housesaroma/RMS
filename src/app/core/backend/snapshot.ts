@@ -3,6 +3,9 @@ import {
   Dictionaries,
   IMPACT_NAMES,
   LIKELIHOOD_NAMES,
+  Measure,
+  MeasureStatus,
+  RequestStatus,
   Right,
   RightDef,
   RiskDetails,
@@ -98,6 +101,26 @@ export interface RiskListItemDto {
   riskScore: number | null;
   riskStatus: string | null;
   acceptanceLevel: string | null;
+  /** Risk–process link ids, index-aligned with `processes`. */
+  riskProcessIds?: number[];
+}
+export interface TreatmentDto {
+  treatmentId: number;
+  riskId: number;
+  riskProcessId: number;
+  treatmentTitle: string;
+  treatmentDescription: string | null;
+  treatmentStatus: string;
+  dueDate: string;
+  treatmentCostPlan: number;
+  treatmentCostAct: number;
+  createdById: number;
+  assigneeId: number | null;
+  createdAt: string;
+  updatedAt: string | null;
+  approvalRequestId: number | null;
+  approvalRequiredLevel: string | null;
+  approvalRequestStatus: string | null;
 }
 export interface CommentDto {
   commentId: number;
@@ -125,6 +148,7 @@ export interface Raw {
   acceptance: { ownerMaxScore: number; directorMaxScore: number; ceoMaxScore: number } | null;
   approval: { ownerThreshold: number; directorThreshold: number; ceoThreshold: number } | null;
   risks: RiskListItemDto[];
+  treatments: TreatmentDto[];
   /** Reads that failed, path → server message; screens decide whether to show it. */
   failed: Record<string, string>;
 }
@@ -209,6 +233,63 @@ export function rightGroup(code: string): string {
 // ── Mapping ────────────────────────────────────────────────────────────────
 
 /** Backend risk statuses (Domain.Risk.RiskStatus names) → UI statuses. */
+const MEASURE_STATUS: Record<string, MeasureStatus> = {
+  Planned: 'DRAFT',
+  PendingApproval: 'APPROVAL',
+  Approved: 'APPROVED',
+  AwaitingExecution: 'PENDING',
+  InProgress: 'IN_PROGRESS',
+  Hold: 'HOLD',
+  Completed: 'DONE',
+  Cancelled: 'CANCELLED',
+};
+const REQUEST_STATUS: Record<string, RequestStatus> = {
+  Pending: 'APPROVAL',
+  Approved: 'APPROVED',
+  Rejected: 'REJECTED',
+  Revoked: 'REVOKED',
+};
+
+/** Process title of a risk–process link, read from the list row it belongs to. */
+export const linkProcess = (x: RiskListItemDto | undefined, linkId: number) =>
+  x?.processes[x.riskProcessIds?.indexOf(linkId) ?? -1] ?? x?.processes[0] ?? '';
+
+// ponytail: the list has no request history, dates of sending/decision or decider; only the
+// latest request is shown until the API returns approval requests per treatment.
+function toMeasure(t: TreatmentDto, row: RiskListItemDto | undefined, name: (id: number) => string): Measure {
+  const status = MEASURE_STATUS[t.treatmentStatus] ?? 'DRAFT';
+  const level = t.approvalRequiredLevel?.toUpperCase() as Measure['requests'][number]['level'] | undefined;
+  return {
+    id: measureId(t.treatmentId),
+    title: t.treatmentTitle,
+    description: t.treatmentDescription ?? '',
+    status,
+    process: linkProcess(row, t.riskProcessId),
+    dueDate: t.dueDate.slice(0, 10),
+    costPlanned: t.treatmentCostPlan,
+    costActual: status === 'DONE' ? t.treatmentCostAct : null,
+    executor: t.assigneeId ? name(t.assigneeId) : null,
+    author: name(t.createdById),
+    sentAt: null,
+    decidedAt: null,
+    doneAt: status === 'DONE' ? (t.updatedAt ?? '').slice(0, 10) || null : null,
+    requests:
+      t.approvalRequestId && level
+        ? [
+            {
+              level,
+              status: REQUEST_STATUS[t.approvalRequestStatus ?? ''] ?? 'APPROVAL',
+              sentAt: '',
+              sentBy: '',
+              decidedAt: null,
+              decidedBy: null,
+              reason: null,
+            },
+          ]
+        : [],
+  };
+}
+
 const STATUS: Record<string, RiskStatus> = {
   Draft: 'DRAFT',
   Open: 'ACTIVE',
@@ -393,7 +474,13 @@ export function build(raw: Raw, token: string): Snapshot {
   };
 
   const state: MockState = {
-    risks: raw.risks.map(toDetails),
+    risks: raw.risks.map((x) => ({
+      ...toDetails(x),
+      measures: raw.treatments
+        .filter((t) => t.riskId === x.riskId)
+        .map((t) => toMeasure(t, x, name))
+        .reverse(),
+    })),
     users,
     dict,
     roles,

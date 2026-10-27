@@ -127,6 +127,7 @@ async function load(c: Ctx): Promise<Snapshot> {
     acceptance,
     approval,
     risks,
+    treatments,
   ] = await Promise.all([
     get<Raw['users']>('users', []),
     get<Raw['roles']>('roles', []),
@@ -142,6 +143,7 @@ async function load(c: Ctx): Promise<Snapshot> {
     get<Raw['acceptance']>(`assessment/acceptance-settings?methodId=${METHOD_ID}`, null),
     get<Raw['approval']>('treatment/approval-settings', null),
     get<Raw['risks']>('risks', []),
+    get<Raw['treatments']>('treatments', []),
   ]);
   const roleRights = Object.fromEntries(
     await Promise.all(
@@ -174,6 +176,7 @@ async function load(c: Ctx): Promise<Snapshot> {
       acceptance,
       approval,
       risks,
+      treatments,
       failed,
     },
     token,
@@ -262,11 +265,13 @@ function riskBody(s: Snapshot, body: NewRisk) {
   };
 }
 
-function measureBody(s: Snapshot, body: NewMeasure) {
+/** Treatments hang on a risk–process link; the list row carries the link ids. */
+function measureBody(s: Snapshot, riskId: string | undefined, body: NewMeasure) {
+  const row = s.raw.risks.find((x) => riskId && x.riskId === backendId(riskId));
+  const k = row ? row.processes.indexOf(body.process) : -1;
   return {
-    // ponytail: the API wants the id of the risk–process link, which no read returns yet; the
-    // process id is sent until GET /v1/risks/{id} exposes the links.
-    riskProcessId: processId(s, body.process),
+    riskProcessId:
+      row?.riskProcessIds?.[k] ?? (riskId ? fail(422, `Процесс «${body.process}» не связан с риском`) : undefined),
     treatmentTitle: body.title.trim(),
     treatmentDescription: body.description.trim(),
     dueDate: body.dueDate ? new Date(body.dueDate).toISOString() : null,
@@ -421,7 +426,8 @@ async function saveDictionaries(c: Ctx, s: Snapshot, patch: Partial<Dictionaries
       levels: levels.map((l, k) => ({
         impactLevelId: l.impactLevelId,
         impactLevelLoss: b[k],
-        impactLevelMax: k < 5 ? b[k + 1] : l.impactLevelMax,
+        // Upper bounds are inclusive and must stay below the next level's lower bound.
+        impactLevelMax: k < 5 ? b[k + 1] - 0.01 : l.impactLevelMax,
       })),
     });
   }
@@ -446,15 +452,22 @@ async function savePerson(c: Ctx, s: Snapshot, uid: number, position?: string, d
     });
 }
 
-/** Creates the account; the server stores `responsibilityType` as the person's position. */
+/**
+ * Creates the account. `responsibilityType` on the server only takes CEO/DIRECTOR/RISK_SPECIALIST,
+ * so the position goes to the person card the server creates for the directorate.
+ */
 async function createUser(c: Ctx, s: Snapshot, body: NewUser): Promise<number> {
   const { userId: id } = await call<{ userId: number }>(c, 'POST', 'users', {
     userFio: body.fullName.trim(),
     userEmail: body.email.trim(),
     roleIds: roleIds(s, body.roles),
     directorateId: body.directorate ? directorateId(s, body.directorate) : null,
-    responsibilityType: body.position?.trim() || null,
   });
+  const position = body.position?.trim();
+  if (position && body.directorate) {
+    const { personId } = await call<{ personId: number | null }>(c, 'GET', `users/${id}`);
+    if (personId) await call(c, 'PUT', `org/persons/${personId}`, { personPosition: position });
+  }
   return id;
 }
 
@@ -617,8 +630,8 @@ const routes: [string, RegExp, Handler][] = [
           'POST',
           `risks/${backendId(id)}/${r.status === 'REASSESSMENT' ? 'reassess' : 'assess'}`,
           {
-            // ponytail: likelihood level ids are assumed to match levels 0–5; map by name once the API lists them.
-            likelihoodLevelId: input.likelihood,
+            // ponytail: migration 003 seeds levels 0–5 as ids 1–6; map by name once the API lists them.
+            likelihoodLevelId: input.likelihood + 1,
             lossAmount: input.lossAmount ?? 0,
             downtimeWeeks: input.weeks ?? null,
             downtimeDays: input.days ?? null,
@@ -655,7 +668,7 @@ const routes: [string, RegExp, Handler][] = [
     async (c, [id]) => {
       const s = await snapshot(c);
       return mutate(c, id, () =>
-        call(c, 'POST', 'treatments', measureBody(s, c.req.body as NewMeasure)),
+        call(c, 'POST', 'treatments', measureBody(s, id, c.req.body as NewMeasure)),
       );
     },
   ],
@@ -691,7 +704,7 @@ const routes: [string, RegExp, Handler][] = [
       const s = await snapshot(c);
       const owner = s.state.risks.find((r) => r.measures.some((m) => m.id === mid));
       const write = () =>
-        call(c, 'PUT', `treatments/${backendId(mid)}`, measureBody(s, c.req.body as NewMeasure));
+        call(c, 'PUT', `treatments/${backendId(mid)}`, measureBody(s, owner?.id, c.req.body as NewMeasure));
       return owner ? mutate(c, owner.id, write) : (await write(), invalidate(), null);
     },
   ],
@@ -717,7 +730,21 @@ const routes: [string, RegExp, Handler][] = [
             return call(c, 'POST', `treatments/${n}/complete`, {
               treatmentCostAct: input.costActual ?? 0,
             });
-          // ponytail: approve/reject/revoke need the approval request id, which no read returns yet.
+          case 'approve':
+          case 'reject':
+          case 'revoke': {
+            const req =
+              s.raw.treatments.find((t) => t.treatmentId === n)?.approvalRequestId ??
+              fail(409, 'У меры нет запроса согласования');
+            const reason = input.reason?.trim() || null;
+            const body =
+              input.action === 'approve'
+                ? { approvalComment: reason }
+                : input.action === 'reject'
+                  ? { approvalReason: reason }
+                  : { revokeReason: reason };
+            return call(c, 'POST', `approval-requests/${req}/${input.action}`, body);
+          }
           default:
             return unsupported('Действие с мерой');
         }
