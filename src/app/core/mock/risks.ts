@@ -7,6 +7,7 @@ import {
   NewRisk,
   RISK_STATUS_NAMES,
   ROLE_NAMES,
+  ModeInput,
   ResponseMode,
   Risk,
   RiskDetails,
@@ -18,6 +19,8 @@ import {
 } from '../models';
 import {
   canAccept,
+  canSplit,
+  canTransfer,
   canAssess,
   canClose,
   canReopen,
@@ -348,14 +351,15 @@ export function assess(
 
 export function chooseMode(
   r: RiskDetails,
-  mode: ResponseMode,
+  input: ModeInput,
   user: User,
   d: Dictionaries,
   now: string,
 ): string | null {
-  const gate =
-    mode === 'accept' ? canAccept(r, user, d) : mode === 'treat' ? canTreat(r, user, d) : null;
-  if (!gate) return 'Режим пока не поддерживается';
+  const mode = input.mode;
+  if (mode === 'split') return splitRisk(r, input, user, d, now);
+  if (mode === 'transfer') return transferRisk(r, input, user, d, now);
+  const gate = mode === 'accept' ? canAccept(r, user, d) : canTreat(r, user, d);
   if (!gate.ok) return gate.why;
   r.responseMode = mode;
   r.modeAt = now;
@@ -370,6 +374,58 @@ export function chooseMode(
       : `Выбран режим «Обработать»${level === 'TREATMENT_REQUIRED' ? ': риск уровня TREATMENT_REQUIRED принять нельзя' : ''}`,
     'mode',
   );
+  return null;
+}
+
+const processOf = (d: Dictionaries, name: string) => d.processes.find((p) => p.name === name);
+
+function splitRisk(r: RiskDetails, input: ModeInput, user: User, d: Dictionaries, now: string) {
+  const gate = canSplit(r, user, d);
+  if (!gate.ok) return gate.why;
+  const names = [...new Set(input.processes ?? [])];
+  if (names.length < 2) return 'Выберите не меньше двух процессов';
+  if (!input.primary || !names.includes(input.primary)) return 'Основной процесс должен быть среди выбранных';
+  if (names.some((n) => !processOf(d, n))) return 'Выбран неактивный процесс';
+  const current = [r.process, ...r.secondary.map((s) => s.name)];
+  const blocked = current
+    .filter((n) => !names.includes(n))
+    .find((n) => r.measures.some((m) => m.process === n && m.status !== 'DONE' && m.status !== 'CANCELLED'));
+  if (blocked) return `Процесс «${blocked}» нельзя исключить: по нему есть незавершённые меры`;
+  const primary = processOf(d, input.primary)!;
+  r.process = primary.name;
+  r.directorate = primary.directorate;
+  r.owner = primary.owner;
+  r.secondary = names
+    .filter((n) => n !== primary.name)
+    .map((n) => {
+      const p = processOf(d, n)!;
+      return { name: p.name, directorate: p.directorate, owner: p.owner };
+    });
+  r.responseMode = 'split';
+  r.modeAt = now;
+  event(r, user, now, `Риск разделён между процессами: ${names.join(', ')}. Основной — «${primary.name}»`, 'mode');
+  return null;
+}
+
+function transferRisk(r: RiskDetails, input: ModeInput, user: User, d: Dictionaries, now: string) {
+  const gate = canTransfer(r, user, d);
+  if (!gate.ok) return gate.why;
+  const target = input.process ? processOf(d, input.process) : undefined;
+  if (!target) return 'Выберите активный процесс';
+  if (target.name === r.process || r.secondary.some((s) => s.name === target.name))
+    return 'Риск уже связан с этим процессом';
+  event(r, user, now, `Риск передан в процесс «${target.name}». Нужна оценка его владельца`, 'mode');
+  r.previous = r.assessment ?? r.previous;
+  r.assessment = null;
+  r.likelihood = null;
+  r.impact = null;
+  r.process = target.name;
+  r.directorate = target.directorate;
+  r.owner = target.owner;
+  r.secondary = [];
+  r.responseMode = null;
+  r.modeAt = null;
+  r.status = 'REASSESSMENT';
   return null;
 }
 

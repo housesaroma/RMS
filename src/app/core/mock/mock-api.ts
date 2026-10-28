@@ -18,6 +18,7 @@ import {
   NewRisk,
   Period,
   ReportRecord,
+  ModeInput,
   ResponseMode,
   RiskDetails,
 } from '../models';
@@ -208,7 +209,7 @@ const routes: [string, RegExp, Handler][] = [
       mutate(req, id, (r) =>
         chooseMode(
           r,
-          (req.body as { mode: ResponseMode }).mode,
+          req.body as ModeInput,
           userFromToken(req),
           DICTIONARIES,
           now(),

@@ -8,6 +8,7 @@ import {
   MeasureActionInput,
   NewMeasure,
   NewRisk,
+  ModeInput,
   ResponseMode,
   Risk,
   RiskDetails,
@@ -55,8 +56,14 @@ export class RisksApi {
     return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/assessments`, body));
   }
 
-  chooseMode(id: string, mode: ResponseMode): Promise<RiskDetails> {
-    return firstValueFrom(this.http.post<RiskDetails>(`${API}/risks/${id}/mode`, { mode }));
+  chooseMode(
+    id: string,
+    mode: ResponseMode,
+    extra: Omit<ModeInput, 'mode'> = {},
+  ): Promise<RiskDetails> {
+    return firstValueFrom(
+      this.http.post<RiskDetails>(`${API}/risks/${id}/mode`, { mode, ...extra }),
+    );
   }
 
   comment(id: string, text: string): Promise<RiskDetails> {

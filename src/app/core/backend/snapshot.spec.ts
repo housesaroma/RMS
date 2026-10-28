@@ -1,4 +1,4 @@
-import { Raw, backendId, build, uiRights } from './snapshot';
+import { Raw, backendId, build, fromDetails, uiRights } from './snapshot';
 
 const b64 = (o: object) =>
   btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(o))))
@@ -39,6 +39,8 @@ const raw = (over: Partial<Raw> = {}): Raw => ({
   approval: null,
   risks: [],
   treatments: [],
+  approvals: [],
+  likelihood: [],
   failed: {},
   ...over,
 });
@@ -115,5 +117,43 @@ describe('backend snapshot', () => {
       requests: [{ level: 'DIRECTOR', status: 'APPROVAL' }],
     });
     expect(backendId('R-0012')).toBe(12);
+  });
+
+  it('takes the passport, links and assessment versions from the risk card', () => {
+    const version = (active: boolean, score: number) => ({
+      likelihoodWeight: 4,
+      impactWeight: 4,
+      lossAmount: 600000,
+      downtimeTotalHours: null,
+      hourlyDowntimeCost: null,
+      riskScore: score,
+      responseMode: active ? 'treat' : null,
+      isActive: active,
+      createdByName: 'Иванова Анна Сергеевна',
+      createdAt: '2026-10-27T10:00:00+00:00',
+    });
+    const d = fromDetails(
+      {
+        riskDescription: 'Отказ CRM',
+        closeReason: null,
+        authorName: 'Петров Пётр',
+        authorPosition: 'Аналитик',
+        processes: [
+          { processTitle: 'Старый', directorate: 'ИТ', ownerName: 'X', isPrimary: false, isActive: false },
+          { processTitle: 'B2B', directorate: 'Продажи', ownerName: 'Y', isPrimary: true, isActive: true },
+          { processTitle: 'B2C', directorate: 'Продажи', ownerName: 'Z', isPrimary: false, isActive: true },
+        ],
+        assessments: [version(true, 16), version(false, 6)],
+      },
+      'ACTIVE',
+    );
+    expect(d).toMatchObject({
+      description: 'Отказ CRM',
+      process: 'B2B',
+      responseMode: 'treat',
+      assessment: { score: 16, lossAmount: 600000 },
+      previous: { score: 6 },
+    });
+    expect(d.secondary?.map((x) => x.name)).toEqual(['B2C']);
   });
 });

@@ -112,6 +112,36 @@
               <span id="treat-tip" role="tooltip" class="tip__body">{{ treatGate().why }}</span>
             }
           </span>
+          @if (!r.responseMode) {
+            <span class="tip">
+              <button
+                type="button"
+                class="btn btn--soft btn--sm"
+                [attr.aria-disabled]="!splitGate().ok || busy()"
+                aria-describedby="split-tip"
+                (click)="splitGate().ok && !busy() && openMode('split')"
+              >
+                Разделить
+              </button>
+              @if (splitGate().why) {
+                <span id="split-tip" role="tooltip" class="tip__body">{{ splitGate().why }}</span>
+              }
+            </span>
+            <span class="tip">
+              <button
+                type="button"
+                class="btn btn--soft btn--sm"
+                [attr.aria-disabled]="!transferGate().ok || busy()"
+                aria-describedby="transfer-tip"
+                (click)="transferGate().ok && !busy() && openMode('transfer')"
+              >
+                Передать
+              </button>
+              @if (transferGate().why) {
+                <span id="transfer-tip" role="tooltip" class="tip__body">{{ transferGate().why }}</span>
+              }
+            </span>
+          }
         }
       }
     </div>

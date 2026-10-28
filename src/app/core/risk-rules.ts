@@ -116,6 +116,28 @@ export function canTreat(r: RiskDetails, u: User, d: Dictionaries): Gate {
   return allow;
 }
 
+/** 08 §5: the risk is spread over several processes of the company, one stays primary. */
+export function canSplit(r: RiskDetails, u: User, d: Dictionaries): Gate {
+  const cycle = needsActiveCycle(r);
+  if (cycle) return cycle;
+  if (!isAdmin(u) && !(has(u, 'split_risk') && isPrimaryOwner(r, u, d)))
+    return deny(`Разделяет риск владелец основного процесса: ${r.owner}`);
+  if (d.processes.length < 2) return deny('Для разделения нужно не меньше двух активных процессов');
+  return allow;
+}
+
+/** 08 §3 п.29–30: the risk moves to another process and waits for its owner's assessment. */
+export function canTransfer(r: RiskDetails, u: User, d: Dictionaries): Gate {
+  const cycle = needsActiveCycle(r);
+  if (cycle) return cycle;
+  if (!isAdmin(u) && !(has(u, 'transfer_risk') && isPrimaryOwner(r, u, d)))
+    return deny(`Передаёт риск владелец основного процесса: ${r.owner}`);
+  if (r.measures.some((m) => m.status !== 'DONE' && m.status !== 'CANCELLED'))
+    return deny('Передать риск можно, когда все меры готовы или отменены');
+  if (d.processes.length < 2) return deny('Нет другого активного процесса');
+  return allow;
+}
+
 export function canAccept(r: RiskDetails, u: User, d: Dictionaries): Gate {
   const cycle = needsActiveCycle(r);
   if (cycle) return cycle;

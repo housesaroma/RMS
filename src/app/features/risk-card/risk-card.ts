@@ -22,6 +22,8 @@ import {
   canAccept,
   canAssess,
   canClose,
+  canSplit,
+  canTransfer,
   canEditMeasure,
   canEditRisk,
   canComment,
@@ -44,6 +46,7 @@ import { RiskScore } from '../../ui/risk-score';
 import { RiskStatusChip } from '../../ui/risk-status';
 import { AssessDialog } from './assess-dialog';
 import { CloseDialog } from './close-dialog';
+import { ModeDialog, ModeDialogData } from './mode-dialog';
 import { MeasureDialog } from './measure-dialog';
 import { RiskCreate } from '../risks/risk-create';
 
@@ -121,6 +124,12 @@ export class RiskCard {
   );
   protected readonly treatGate = computed(() =>
     this.gate((r) => canTreat(r, this.auth.user()!, this.dict.value()!)),
+  );
+  protected readonly splitGate = computed(() =>
+    this.gate((r) => canSplit(r, this.auth.user()!, this.dict.value()!)),
+  );
+  protected readonly transferGate = computed(() =>
+    this.gate((r) => canTransfer(r, this.auth.user()!, this.dict.value()!)),
   );
   protected readonly measureGate = computed(() =>
     this.gate((r) => canCreateMeasure(r, this.auth.user()!)),
@@ -353,6 +362,28 @@ export class RiskCard {
       () => this.api.reopen(r.id),
       'Риск возвращён из архива. Нужна новая оценка владельца процесса.',
     );
+  }
+
+  protected openMode(mode: ModeDialogData['mode']): void {
+    this.dialog
+      .open<RiskDetails, ModeDialogData>(ModeDialog, {
+        data: { risk: this.risk()!, mode, processes: this.dict.value()!.processes },
+        width: '560px',
+        maxWidth: 'calc(100vw - 32px)',
+        backdropClass: 'dialog-backdrop',
+        ariaLabelledBy: 'md-title',
+      })
+      .closed.subscribe((updated) => {
+        if (!updated) return;
+        this.risk.set(updated);
+        this.notice.set({
+          text:
+            mode === 'split'
+              ? 'Риск разделён между процессами. Теперь можно добавлять меры по каждому из них.'
+              : 'Риск передан в другой процесс и ждёт оценки нового владельца.',
+          error: false,
+        });
+      });
   }
 
   protected openClose(): void {

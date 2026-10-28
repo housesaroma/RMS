@@ -103,6 +103,24 @@ export interface RiskListItemDto {
   acceptanceLevel: string | null;
   /** Risk–process link ids, index-aligned with `processes`. */
   riskProcessIds?: number[];
+  responseMode?: string | null;
+}
+export interface LikelihoodLevelDto {
+  likelihoodLevelId: number;
+  likelihoodLevelName: string;
+  likelihoodLevelWeight: number;
+}
+export interface ApprovalRequestDto {
+  approvalRequestId: number;
+  treatmentId: number;
+  approvalRequiredLevel: string;
+  approvalRequestStatus: string;
+  createdByName: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  decidedByName: string | null;
+  comment: string | null;
+  reason: string | null;
 }
 export interface TreatmentDto {
   treatmentId: number;
@@ -149,6 +167,8 @@ export interface Raw {
   approval: { ownerThreshold: number; directorThreshold: number; ceoThreshold: number } | null;
   risks: RiskListItemDto[];
   treatments: TreatmentDto[];
+  approvals: ApprovalRequestDto[];
+  likelihood: LikelihoodLevelDto[];
   /** Reads that failed, path → server message; screens decide whether to show it. */
   failed: Record<string, string>;
 }
@@ -254,11 +274,20 @@ const REQUEST_STATUS: Record<string, RequestStatus> = {
 export const linkProcess = (x: RiskListItemDto | undefined, linkId: number) =>
   x?.processes[x.riskProcessIds?.indexOf(linkId) ?? -1] ?? x?.processes[0] ?? '';
 
-// ponytail: the list has no request history, dates of sending/decision or decider; only the
-// latest request is shown until the API returns approval requests per treatment.
-function toMeasure(t: TreatmentDto, row: RiskListItemDto | undefined, name: (id: number) => string): Measure {
+type RequestLevel = Measure['requests'][number]['level'];
+const requestLevel = (v: string | null | undefined) => v?.toUpperCase() as RequestLevel | undefined;
+
+function toMeasure(
+  t: TreatmentDto,
+  row: RiskListItemDto | undefined,
+  name: (id: number) => string,
+  approvals: ApprovalRequestDto[],
+): Measure {
   const status = MEASURE_STATUS[t.treatmentStatus] ?? 'DRAFT';
-  const level = t.approvalRequiredLevel?.toUpperCase() as Measure['requests'][number]['level'] | undefined;
+  const level = requestLevel(t.approvalRequiredLevel);
+  const history = approvals.filter((a) => a.treatmentId === t.treatmentId);
+  const sent = history.at(-1);
+  const decided = history.find((a) => a.decidedAt);
   return {
     id: measureId(t.treatmentId),
     title: t.treatmentTitle,
@@ -270,11 +299,20 @@ function toMeasure(t: TreatmentDto, row: RiskListItemDto | undefined, name: (id:
     costActual: status === 'DONE' ? t.treatmentCostAct : null,
     executor: t.assigneeId ? name(t.assigneeId) : null,
     author: name(t.createdById),
-    sentAt: null,
-    decidedAt: null,
+    sentAt: sent?.createdAt ?? null,
+    decidedAt: decided?.decidedAt ?? null,
     doneAt: status === 'DONE' ? (t.updatedAt ?? '').slice(0, 10) || null : null,
-    requests:
-      t.approvalRequestId && level
+    requests: history.length
+      ? history.map((a) => ({
+          level: requestLevel(a.approvalRequiredLevel) ?? 'OWNER',
+          status: REQUEST_STATUS[a.approvalRequestStatus] ?? 'APPROVAL',
+          sentAt: a.createdAt,
+          sentBy: a.createdByName ? shortName(a.createdByName) : '',
+          decidedAt: a.decidedAt,
+          decidedBy: a.decidedByName ? shortName(a.decidedByName) : null,
+          reason: a.reason ?? a.comment,
+        }))
+      : t.approvalRequestId && level
         ? [
             {
               level,
@@ -357,9 +395,9 @@ function toDetails(x: RiskListItemDto): RiskDetails {
       directorate: x.directorates?.[k + 1] ?? '',
       owner: x.owners?.[k + 1] ?? '',
     })),
-    // ponytail: `treat` on an Open risk lives only in the assessment, which the list does not return.
     responseMode:
-      x.riskStatus === 'Accepted' ? 'accept' : x.riskStatus === 'InTreatment' ? 'treat' : null,
+      (x.responseMode as RiskDetails['responseMode'] | undefined) ??
+      (x.riskStatus === 'Accepted' ? 'accept' : x.riskStatus === 'InTreatment' ? 'treat' : null),
     modeAt: null,
     assessment: waits ? null : assessment,
     previous: waits ? assessment : null,
@@ -367,6 +405,75 @@ function toDetails(x: RiskListItemDto): RiskDetails {
     history: [],
     comments: [],
     related: [],
+  };
+}
+
+export interface RiskDetailsDto {
+  riskDescription: string;
+  closeReason: string | null;
+  authorName: string | null;
+  authorPosition: string | null;
+  processes: {
+    processTitle: string | null;
+    directorate: string | null;
+    ownerName: string | null;
+    isPrimary: boolean;
+    isActive: boolean;
+  }[];
+  assessments: {
+    likelihoodWeight: number;
+    impactWeight: number;
+    lossAmount: number;
+    downtimeTotalHours: number | null;
+    hourlyDowntimeCost: number | null;
+    riskScore: number;
+    responseMode: string | null;
+    isActive: boolean;
+    createdByName: string | null;
+    createdAt: string;
+  }[];
+}
+
+/** The card's fields that only GET /v1/risks/{id} returns. */
+export function fromDetails(d: RiskDetailsDto, status: RiskStatus): Partial<RiskDetails> {
+  const versions = d.assessments.map((a) => ({
+    likelihood: a.likelihoodWeight,
+    impact: a.impactWeight,
+    score: a.riskScore,
+    lossAmount: a.lossAmount,
+    hourlyCost: a.hourlyDowntimeCost,
+    downtimeHours: a.downtimeTotalHours,
+    by: a.createdByName ? shortName(a.createdByName) : '',
+    byRole: '',
+    at: a.createdAt,
+    active: a.isActive,
+    mode: a.responseMode,
+  }));
+  const strip = ({ active: _a, mode: _m, ...x }: (typeof versions)[number]) => x;
+  const current = versions.find((v) => v.active);
+  const previous = versions.find((v) => !v.active);
+  const links = d.processes.filter((x) => x.isActive);
+  const primary = links.find((x) => x.isPrimary) ?? links[0];
+  return {
+    description: d.riskDescription,
+    closeReason: d.closeReason,
+    author: d.authorName ? shortName(d.authorName) : '',
+    authorPosition: d.authorPosition ?? '',
+    ...(primary && {
+      process: primary.processTitle ?? '',
+      directorate: primary.directorate ?? '',
+      owner: primary.ownerName ? shortName(primary.ownerName) : '',
+    }),
+    secondary: links
+      .filter((x) => x !== primary)
+      .map((x) => ({
+        name: x.processTitle ?? '',
+        directorate: x.directorate ?? '',
+        owner: x.ownerName ? shortName(x.ownerName) : '',
+      })),
+    responseMode: (current?.mode as RiskDetails['responseMode']) ?? null,
+    assessment: status === 'REASSESSMENT' || !current ? null : strip(current),
+    previous: previous ? strip(previous) : null,
   };
 }
 
@@ -478,7 +585,7 @@ export function build(raw: Raw, token: string): Snapshot {
       ...toDetails(x),
       measures: raw.treatments
         .filter((t) => t.riskId === x.riskId)
-        .map((t) => toMeasure(t, x, name))
+        .map((t) => toMeasure(t, x, name, raw.approvals))
         .reverse(),
     })),
     users,

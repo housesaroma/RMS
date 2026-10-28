@@ -77,12 +77,33 @@ describe('risk rules', () => {
     expect(r).toMatchObject({ status: 'ACTIVE', likelihood: 3, impact: 4, responseMode: null });
     expect(canCreateMeasure(r, IVANOVA).ok).toBe(false);
     expect(canTreat(r, PETROV, DICTIONARIES).ok).toBe(false);
-    expect(chooseMode(r, 'treat', IVANOVA, DICTIONARIES, '2026-10-22T10:05:00Z')).toBeNull();
+    expect(chooseMode(r, { mode: 'treat' }, IVANOVA, DICTIONARIES, '2026-10-22T10:05:00Z')).toBeNull();
     expect(canCreateMeasure(r, IVANOVA).ok).toBe(true);
     expect(canCreateMeasure(r, BELOV).ok).toBe(false); // RISK_SPECIALIST has no create_treatment
-    expect(chooseMode(r, 'accept', ADMIN, DICTIONARIES, '2026-10-22T10:06:00Z')).toContain(
+    expect(chooseMode(r, { mode: 'accept' }, ADMIN, DICTIONARIES, '2026-10-22T10:06:00Z')).toContain(
       'уже выбран',
     );
+  });
+
+  it('splits a risk over processes and transfers it to a new owner', () => {
+    const r = risk('R-0147');
+    assess(r, { likelihood: 3, lossAmount: 650000 }, IVANOVA, DICTIONARIES, '2026-10-22T10:00:00Z');
+    const [other] = DICTIONARIES.processes.filter((p) => p.name !== r.process);
+    expect(chooseMode(r, { mode: 'split', processes: [r.process] }, IVANOVA, DICTIONARIES, 't')).toContain(
+      'двух',
+    );
+    expect(
+      chooseMode(r, { mode: 'split', processes: [r.process, other.name], primary: other.name }, IVANOVA, DICTIONARIES, 't'),
+    ).toBeNull();
+    expect(r).toMatchObject({ process: other.name, responseMode: 'split' });
+    expect(r.secondary.map((s) => s.name)).toHaveLength(1);
+    expect(canCreateMeasure(r, IVANOVA).ok).toBe(true);
+
+    const t = risk('R-0147');
+    assess(t, { likelihood: 3, lossAmount: 650000 }, IVANOVA, DICTIONARIES, '2026-10-22T10:00:00Z');
+    expect(chooseMode(t, { mode: 'transfer', process: t.process }, IVANOVA, DICTIONARIES, 't')).toContain('уже связан');
+    expect(chooseMode(t, { mode: 'transfer', process: other.name }, IVANOVA, DICTIONARIES, 't')).toBeNull();
+    expect(t).toMatchObject({ status: 'REASSESSMENT', process: other.name, assessment: null, responseMode: null });
   });
 
   it('runs a measure through approval, handover and finish with the slot rule', () => {

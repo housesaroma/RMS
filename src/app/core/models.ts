@@ -168,6 +168,14 @@ export const IMPACT_NAMES = [
 
 export type ResponseMode = 'accept' | 'treat' | 'split' | 'transfer';
 
+/** Choice of the cycle mode; split names all processes and the primary one, transfer the new one. */
+export interface ModeInput {
+  mode: ResponseMode;
+  processes?: string[];
+  primary?: string;
+  process?: string;
+}
+
 export const RESPONSE_MODE_NAMES: Record<ResponseMode, string> = {
   accept: 'Принять',
   treat: 'Обработать',

@@ -21,6 +21,7 @@ import {
   NewUser,
   Period,
   ReportRecord,
+  ModeInput,
   ResponseMode,
   RiskDetails,
   Role,
@@ -50,6 +51,8 @@ import {
   rightDefs,
   riskId,
   userId,
+  RiskDetailsDto,
+  fromDetails,
 } from './snapshot';
 
 /** Real API prefix; the dev server proxies it to the stand (proxy.conf.json). */
@@ -128,6 +131,8 @@ async function load(c: Ctx): Promise<Snapshot> {
     approval,
     risks,
     treatments,
+    approvals,
+    likelihood,
   ] = await Promise.all([
     get<Raw['users']>('users', []),
     get<Raw['roles']>('roles', []),
@@ -144,6 +149,8 @@ async function load(c: Ctx): Promise<Snapshot> {
     get<Raw['approval']>('treatment/approval-settings', null),
     get<Raw['risks']>('risks', []),
     get<Raw['treatments']>('treatments', []),
+    get<Raw['approvals']>('approval-requests', []),
+    get<Raw['likelihood']>(`assessment/likelihood-levels?methodId=${METHOD_ID}`, []),
   ]);
   const roleRights = Object.fromEntries(
     await Promise.all(
@@ -177,6 +184,8 @@ async function load(c: Ctx): Promise<Snapshot> {
       approval,
       risks,
       treatments,
+      approvals,
+      likelihood,
       failed,
     },
     token,
@@ -283,10 +292,11 @@ function measureBody(s: Snapshot, riskId: string | undefined, body: NewMeasure) 
 async function card(c: Ctx, id: string) {
   const s = await snapshot(c);
   const r = riskCard(s.state.risks, id) ?? fail(404, 'Риск не найден');
-  const list = await opt(
-    call<CommentDto[]>(c, 'GET', `comments?entityType=Risk&entityId=${backendId(id)}`),
-    [],
-  );
+  const [list, details] = await Promise.all([
+    opt(call<CommentDto[]>(c, 'GET', `comments?entityType=Risk&entityId=${backendId(id)}`), []),
+    opt(call<RiskDetailsDto | null>(c, 'GET', `risks/${backendId(id)}`), null),
+  ]);
+  if (details) Object.assign(r, fromDetails(details, r.status));
   const author = (n: number) => s.state.users.find((u) => u.id === userId(n));
   r.comments = list
     .filter((x) => x.isActive)
@@ -630,8 +640,9 @@ const routes: [string, RegExp, Handler][] = [
           'POST',
           `risks/${backendId(id)}/${r.status === 'REASSESSMENT' ? 'reassess' : 'assess'}`,
           {
-            // ponytail: migration 003 seeds levels 0–5 as ids 1–6; map by name once the API lists them.
-            likelihoodLevelId: input.likelihood + 1,
+            likelihoodLevelId:
+              s.raw.likelihood.find((l) => l.likelihoodLevelWeight === input.likelihood)
+                ?.likelihoodLevelId ?? fail(422, 'На сервере нет такого уровня вероятности'),
             lossAmount: input.lossAmount ?? 0,
             downtimeWeeks: input.weeks ?? null,
             downtimeDays: input.days ?? null,
@@ -644,10 +655,20 @@ const routes: [string, RegExp, Handler][] = [
   [
     'POST',
     /^risks\/(R-\d+)\/mode$/,
-    (c, [id]) => {
-      const mode = (c.req.body as { mode: ResponseMode }).mode;
-      if (mode !== 'accept' && mode !== 'treat') return unsupported('Разделение и передача риска');
-      return mutate(c, id, () => call(c, 'POST', `risks/${backendId(id)}/${mode}`));
+    async (c, [id]) => {
+      const input = c.req.body as ModeInput;
+      const s = await snapshot(c);
+      const n = backendId(id);
+      return mutate(c, id, () =>
+        input.mode === 'split'
+          ? call(c, 'POST', `risks/${n}/split`, {
+              processIds: (input.processes ?? []).map((p) => processId(s, p)),
+              primaryProcessId: processId(s, input.primary ?? ''),
+            })
+          : input.mode === 'transfer'
+            ? call(c, 'POST', `risks/${n}/transfer`, { newProcessId: processId(s, input.process ?? '') })
+            : call(c, 'POST', `risks/${n}/${input.mode}`),
+      );
     },
   ],
   [
