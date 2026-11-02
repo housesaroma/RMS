@@ -246,7 +246,7 @@
             <dt>Автор</dt>
             <dd>
               {{ r.author
-              }}<span class="sub">{{ r.authorPosition }} · {{ date(r.createdAtTime) }}</span>
+              }}<span class="sub">{{ r.authorPosition ? r.authorPosition + ' · ' : '' }}{{ date(r.createdAtTime) }}</span>
             </dd>
           </div>
         </dl>
@@ -374,7 +374,7 @@
           <div class="summary">
             <div>
               <span class="label">Оценил</span
-              ><span>{{ a.by }} · {{ a.byRole.toLowerCase() }}</span>
+              ><span>{{ a.by }}{{ a.byRole ? ' · ' + a.byRole.toLowerCase() : '' }}</span>
             </div>
             <div>
               <span class="label">Дата оценки</span><span>{{ date(a.at, true) }}</span>

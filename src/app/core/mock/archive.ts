@@ -37,7 +37,7 @@ export function archivePage(all: RiskDetails[], q: ArchiveQuery): ArchivePage {
       closedAt: r.closedAt!,
       closeReason: r.closeReason ?? '',
       closedBy: r.closedBy ?? '',
-      lastScore: r.previous?.score ?? null,
+      lastScore: r.previous?.score ?? r.assessment?.score ?? null,
     })),
     total: list.length,
     page: q.page,

@@ -13,8 +13,8 @@ const LEVEL_VAR: Record<Level, string> = {
   selector: 'ui-risk-score',
   template: `
     <span class="line">
-      <span class="badge" [style]="badgeStyle()">{{ score() || '—' }}</span>
-      <span class="sub">{{ score() ? likelihood() + '×' + impact() : emptyText() }}</span>
+      <span class="badge" [style]="badgeStyle()">{{ assessed() ? score() : '—' }}</span>
+      <span class="sub">{{ assessed() ? likelihood() + '×' + impact() : emptyText() }}</span>
     </span>
     @if (level(); as lv) {
       <span class="level" [style.color]="'var(--lv-' + vars[lv] + '-text)'">{{ lv }}</span>
@@ -63,9 +63,11 @@ export class RiskScore {
   readonly thresholds = input.required<Thresholds>();
 
   protected readonly vars = LEVEL_VAR;
+  // A 0×n score is still an assessment: the backend scale starts at 0.
+  protected readonly assessed = computed(() => this.likelihood() != null && this.impact() != null);
   protected readonly score = computed(() => (this.likelihood() ?? 0) * (this.impact() ?? 0));
   protected readonly level = computed(() =>
-    this.score() ? levelOf(this.score(), this.thresholds()) : null,
+    this.assessed() ? levelOf(this.score(), this.thresholds()) : null,
   );
   protected readonly badgeStyle = computed(() => {
     const lv = this.level();

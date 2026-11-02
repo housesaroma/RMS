@@ -129,8 +129,8 @@ function validateRiskFields(body: NewRisk, user: User, d: Dictionaries): string 
 
 export const roleOf = (u: User) => u.position || ROLE_NAMES[u.roles[0]];
 export const shortName = (fullName: string) => {
-  const [last, first = '', middle = ''] = fullName.split(' ');
-  return `${last} ${first[0] ?? ''}. ${middle[0] ?? ''}.`.replace(' . .', '');
+  const [last, ...rest] = fullName.trim().split(/\s+/);
+  return [last, ...rest.slice(0, 2).map((x) => `${x[0]}.`)].join(' ');
 };
 const money = (n: number) => `${n.toLocaleString('ru-RU')} ₽`;
 

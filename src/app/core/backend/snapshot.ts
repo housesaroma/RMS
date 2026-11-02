@@ -104,6 +104,10 @@ export interface RiskListItemDto {
   /** Risk–process link ids, index-aligned with `processes`. */
   riskProcessIds?: number[];
   responseMode?: string | null;
+  lossAmount?: number | null;
+  createdAt?: string | null;
+  closedAt?: string | null;
+  closeReason?: string | null;
 }
 export interface LikelihoodLevelDto {
   likelihoodLevelId: number;
@@ -346,8 +350,7 @@ function levelOf(v: string | null, names: string[]): number | null {
   return k < 0 ? null : k;
 }
 
-// ponytail: the list has no description, dates, author, response mode, measures or history; the card
-// shows what the list carries until the backend adds GET /v1/risks/{id}.
+// The list has no description, author, measures or history: GET /v1/risks/{id} fills them in for the card.
 function toDetails(x: RiskListItemDto): RiskDetails {
   const [process = '', ...rest] = x.processes ?? [];
   const status = STATUS[x.riskStatus ?? ''] ?? 'DRAFT';
@@ -359,7 +362,7 @@ function toDetails(x: RiskListItemDto): RiskDetails {
           likelihood: l,
           impact: i,
           score: x.riskScore ?? l * i,
-          lossAmount: 0,
+          lossAmount: x.lossAmount ?? 0,
           hourlyCost: null,
           downtimeHours: null,
           by: '',
@@ -379,15 +382,16 @@ function toDetails(x: RiskListItemDto): RiskDetails {
     directorate: x.directorates?.[0] ?? '',
     owner: x.owners?.[0] ?? '',
     asset: x.asset || null,
-    createdAt: '',
-    createdAtTime: '',
-    closedAt: null,
-    closeReason: null,
+    createdAt: x.createdAt?.slice(0, 10) ?? '',
+    createdAtTime: x.createdAt ?? '',
+    closedAt: x.closedAt ?? null,
+    closeReason: x.closeReason ?? null,
     closedBy: null,
     likelihood: waits ? null : l,
     impact: waits ? null : i,
     status,
-    top: false,
+    // Top risks are the CEO level and above (TZ: «топ рисков по компании»).
+    top: x.acceptanceLevel === 'Ceo' || x.acceptanceLevel === 'TreatmentRequired',
     author: '',
     authorPosition: '',
     secondary: rest.map((name, k) => ({

@@ -3,7 +3,7 @@ import { DICTIONARIES, USERS } from './db';
 import { seedRisks } from './seed';
 
 const RISKS = seedRisks();
-import { createRisk, filterRisks, pageRisks, updateRisk, validateNewRisk } from './risks';
+import { createRisk, filterRisks, pageRisks, shortName, updateRisk, validateNewRisk } from './risks';
 
 const q = (over: Partial<RiskQuery> = {}): RiskQuery => ({
   tab: 'all',
@@ -104,5 +104,13 @@ describe('mock risk registry', () => {
     expect(updateRisk(active, edit(active), user('U-001'), DICTIONARIES, now)).toBe(
       'Редактируется только черновик',
     );
+  });
+});
+
+describe('shortName', () => {
+  it('keeps initials only for the parts a name has', () => {
+    expect(shortName('Иванова Анна Сергеевна')).toBe('Иванова А. С.');
+    expect(shortName('Smoke Admin')).toBe('Smoke A.');
+    expect(shortName('owner')).toBe('owner');
   });
 });
