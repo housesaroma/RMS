@@ -1,0 +1,20 @@
+services:
+  frontend:
+    image: rms-service-frontend:latest
+    container_name: rms-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      # Адрес бэкенда внутри общей docker-сети.
+      # Должен совпадать с именем контейнера/сервиса бэкенда на сервере.
+      BACKEND_URL: http://rms-service-backend-pre:8080
+    networks:
+      - rms-network
+
+networks:
+  rms-network:
+    # Внешняя сеть, общая с бэкендом. Создать один раз на сервере:
+    # docker network create rms-network
+    # (или подключить к ней контейнеры бэкенда в его docker-compose.yml)
+    external: true
