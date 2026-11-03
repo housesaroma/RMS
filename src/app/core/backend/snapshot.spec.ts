@@ -119,6 +119,55 @@ describe('backend snapshot', () => {
     expect(backendId('R-0012')).toBe(12);
   });
 
+  it('keeps an open request for a measure on approval when the list has none', () => {
+    const s = build(
+      raw({
+        risks: [
+          {
+            riskId: 12,
+            riskTitle: 'Отказ CRM',
+            processes: ['B2B'],
+            directorates: ['Продажи'],
+            owners: [],
+            asset: null,
+            hazard: null,
+            category: null,
+            likelihood: null,
+            impact: null,
+            riskScore: null,
+            riskStatus: 'Open',
+            acceptanceLevel: null,
+            riskProcessIds: [40],
+          },
+        ],
+        treatments: [
+          {
+            treatmentId: 5,
+            riskId: 12,
+            riskProcessId: 40,
+            treatmentTitle: 'Резервный канал',
+            treatmentDescription: null,
+            treatmentStatus: 'PendingApproval',
+            dueDate: '2026-12-01T00:00:00+00:00',
+            treatmentCostPlan: 60000,
+            treatmentCostAct: 0,
+            createdById: 8,
+            assigneeId: null,
+            createdAt: '2026-10-27T10:00:00+00:00',
+            updatedAt: null,
+            approvalRequestId: null,
+            approvalRequiredLevel: 'Director',
+            approvalRequestStatus: null,
+          },
+        ],
+      } as Partial<Raw>),
+      token(8, 'OWNER'),
+    );
+    expect(s.state.risks[0].measures[0].requests).toMatchObject([
+      { level: 'DIRECTOR', status: 'APPROVAL' },
+    ]);
+  });
+
   it('takes the passport, links and assessment versions from the risk card', () => {
     const version = (active: boolean, score: number) => ({
       likelihoodWeight: 4,

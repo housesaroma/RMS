@@ -292,6 +292,36 @@ function toMeasure(
   const history = approvals.filter((a) => a.treatmentId === t.treatmentId);
   const sent = history.at(-1);
   const decided = history.find((a) => a.decidedAt);
+  const requests: Measure['requests'] = history.map((a) => ({
+    level: requestLevel(a.approvalRequiredLevel) ?? 'OWNER',
+    status: REQUEST_STATUS[a.approvalRequestStatus] ?? 'APPROVAL',
+    sentAt: a.createdAt,
+    sentBy: a.createdByName ? shortName(a.createdByName) : '',
+    decidedAt: a.decidedAt,
+    decidedBy: a.decidedByName ? shortName(a.decidedByName) : null,
+    reason: a.reason ?? a.comment,
+  }));
+  // A measure on approval always has an open request, even if the list did not return it.
+  if (status === 'APPROVAL' && !requests.some((q) => q.status === 'APPROVAL'))
+    requests.push({
+      level: level ?? 'OWNER',
+      status: 'APPROVAL',
+      sentAt: sent?.createdAt ?? '',
+      sentBy: '',
+      decidedAt: null,
+      decidedBy: null,
+      reason: null,
+    });
+  else if (!history.length && t.approvalRequestId && level)
+    requests.push({
+      level,
+      status: REQUEST_STATUS[t.approvalRequestStatus ?? ''] ?? 'APPROVAL',
+      sentAt: '',
+      sentBy: '',
+      decidedAt: null,
+      decidedBy: null,
+      reason: null,
+    });
   return {
     id: measureId(t.treatmentId),
     title: t.treatmentTitle,
@@ -306,29 +336,7 @@ function toMeasure(
     sentAt: sent?.createdAt ?? null,
     decidedAt: decided?.decidedAt ?? null,
     doneAt: status === 'DONE' ? (t.updatedAt ?? '').slice(0, 10) || null : null,
-    requests: history.length
-      ? history.map((a) => ({
-          level: requestLevel(a.approvalRequiredLevel) ?? 'OWNER',
-          status: REQUEST_STATUS[a.approvalRequestStatus] ?? 'APPROVAL',
-          sentAt: a.createdAt,
-          sentBy: a.createdByName ? shortName(a.createdByName) : '',
-          decidedAt: a.decidedAt,
-          decidedBy: a.decidedByName ? shortName(a.decidedByName) : null,
-          reason: a.reason ?? a.comment,
-        }))
-      : t.approvalRequestId && level
-        ? [
-            {
-              level,
-              status: REQUEST_STATUS[t.approvalRequestStatus ?? ''] ?? 'APPROVAL',
-              sentAt: '',
-              sentBy: '',
-              decidedAt: null,
-              decidedBy: null,
-              reason: null,
-            },
-          ]
-        : [],
+    requests,
   };
 }
 
