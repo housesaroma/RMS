@@ -4,7 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API } from '../../core/api';
 import { downloadCsv } from '../../core/csv';
-import { date, daysLeft, rub } from '../../core/format';
+import { date, daysLeft, plural, rub } from '../../core/format';
 import {
   DashboardData,
   MEASURE_STATUS_NAMES,
@@ -84,6 +84,7 @@ export class Reports {
 
   protected readonly rub = rub;
   protected readonly date = date;
+  protected readonly plural = plural;
   protected readonly measureNames = MEASURE_STATUS_NAMES;
   protected readonly riskNames = RISK_STATUS_NAMES;
 

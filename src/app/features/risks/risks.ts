@@ -5,6 +5,7 @@ import { Component, computed, inject, input, linkedSignal, signal } from '@angul
 import { Router, RouterLink } from '@angular/router';
 import { API, errorMessage } from '../../core/api';
 import { AuthService } from '../../core/auth';
+import { plural } from '../../core/format';
 import { Risk, RiskPage, RiskQuery, RiskTab } from '../../core/models';
 import { RisksApi, riskParams } from '../../core/risks-api';
 import { Icon } from '../../ui/icon';
@@ -215,10 +216,3 @@ export class Risks {
   }
 }
 
-function plural(n: number, one: string, few: string, many: string): string {
-  const m10 = n % 10,
-    m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
-  return many;
-}

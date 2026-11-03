@@ -291,7 +291,8 @@
         </table>
       </div>
       <p class="muted xs">
-        {{ decisions().length }} записей. Режим работы выбирается один раз за цикл оценки.
+        {{ decisions().length }} {{ plural(decisions().length, 'запись', 'записи', 'записей') }}.
+        Режим работы выбирается один раз за цикл оценки.
       </p>
     </section>
   }
