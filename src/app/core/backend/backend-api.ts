@@ -141,6 +141,7 @@ async function load(c: Ctx): Promise<Snapshot> {
     treatments,
     approvals,
     likelihood,
+    events,
   ] = await Promise.all([
     get<Raw['users']>('users', []),
     get<Raw['roles']>('roles', []),
@@ -159,6 +160,7 @@ async function load(c: Ctx): Promise<Snapshot> {
     get<Raw['treatments']>('treatments', []),
     get<Raw['approvals']>('approval-requests', []),
     get<Raw['likelihood']>(`assessment/likelihood-levels?methodId=${METHOD_ID}`, []),
+    get<Raw['events']>('risk-events', []),
   ]);
   const roleRights = Object.fromEntries(
     await Promise.all(
@@ -194,6 +196,7 @@ async function load(c: Ctx): Promise<Snapshot> {
       treatments,
       approvals,
       likelihood,
+      events,
       failed,
     },
     token,

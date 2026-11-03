@@ -41,6 +41,7 @@ const raw = (over: Partial<Raw> = {}): Raw => ({
   treatments: [],
   approvals: [],
   likelihood: [],
+  events: [],
   failed: {},
   ...over,
 });
@@ -166,6 +167,53 @@ describe('backend snapshot', () => {
     expect(s.state.risks[0].measures[0].requests).toMatchObject([
       { level: 'DIRECTOR', status: 'APPROVAL' },
     ]);
+  });
+
+  it('puts server events into the history of their risk', () => {
+    const row = {
+      riskTitle: 'Отказ CRM',
+      processes: ['B2B'],
+      directorates: ['Продажи'],
+      owners: [],
+      asset: null,
+      hazard: null,
+      category: null,
+      likelihood: null,
+      impact: null,
+      riskScore: null,
+      riskStatus: 'Draft',
+      acceptanceLevel: null,
+      riskProcessIds: [40],
+    };
+    const event = (riskId: number, authorId: number | null, kind: string, text: string) => ({
+      eventId: riskId * 10 + kind.length,
+      riskId,
+      kind,
+      text,
+      authorId,
+      authorName: authorId ? 'Иванова Анна Сергеевна' : null,
+      authorPosition: authorId ? 'Владелец процесса' : null,
+      createdAt: '2026-10-27T10:00:00+00:00',
+    });
+    const s = build(
+      raw({
+        risks: [
+          { ...row, riskId: 1 },
+          { ...row, riskId: 2 },
+        ],
+        events: [
+          event(1, null, 'system', 'Цикл мер завершён'),
+          event(1, 8, 'mode', 'Риск принят на уровне OWNER'),
+          event(2, 8, 'create', 'Риск зарегистрирован'),
+        ],
+      }),
+      token(8, 'OWNER'),
+    );
+    expect(s.state.risks[0].history).toEqual([
+      expect.objectContaining({ kind: 'system', by: 'Система', role: 'автоматически' }),
+      expect.objectContaining({ kind: 'mode', by: 'Иванова А. С.', role: 'Владелец процесса' }),
+    ]);
+    expect(s.state.risks[1].history.map((e) => e.kind)).toEqual(['create']);
   });
 
   it('takes the passport, links and assessment versions from the risk card', () => {

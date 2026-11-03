@@ -1,6 +1,8 @@
 import {
   AdminUser,
   Dictionaries,
+  HistoryEvent,
+  HistoryKind,
   IMPACT_NAMES,
   LIKELIHOOD_NAMES,
   Measure,
@@ -116,6 +118,25 @@ export interface LikelihoodLevelDto {
   likelihoodLevelName: string;
   likelihoodLevelWeight: number;
 }
+const toEvent = (e: RiskEventDto): HistoryEvent => ({
+  at: e.createdAt,
+  text: e.text,
+  by: e.authorName ? shortName(e.authorName) : 'Система',
+  role: e.authorId ? (e.authorPosition ?? '') : 'автоматически',
+  kind: e.kind as HistoryKind,
+});
+
+/** GET /v1/risk-events: what happened to a risk and its measures; no author for system events. */
+export interface RiskEventDto {
+  eventId: number;
+  riskId: number;
+  kind: string;
+  text: string;
+  authorId: number | null;
+  authorName: string | null;
+  authorPosition: string | null;
+  createdAt: string;
+}
 export interface ApprovalRequestDto {
   approvalRequestId: number;
   treatmentId: number;
@@ -175,6 +196,8 @@ export interface Raw {
   treatments: TreatmentDto[];
   approvals: ApprovalRequestDto[];
   likelihood: LikelihoodLevelDto[];
+  /** Risk history, newest first. */
+  events: RiskEventDto[];
   /** Reads that failed, path → server message; screens decide whether to show it. */
   failed: Record<string, string>;
 }
@@ -361,7 +384,7 @@ function levelOf(v: string | null, names: string[]): number | null {
   return k < 0 ? null : k;
 }
 
-// The list has no description, author, measures or history: GET /v1/risks/{id} fills them in for the card.
+// The list has no description, author or measures: GET /v1/risks/{id} fills them in for the card.
 function toDetails(x: RiskListItemDto): RiskDetails {
   const [process = '', ...rest] = x.processes ?? [];
   const status = STATUS[x.riskStatus ?? ''] ?? 'DRAFT';
@@ -611,6 +634,7 @@ export function build(raw: Raw, token: string): Snapshot {
         .filter((t) => t.riskId === x.riskId)
         .map((t) => toMeasure(t, x, name, raw.approvals))
         .reverse(),
+      history: raw.events.filter((e) => e.riskId === x.riskId).map(toEvent),
     })),
     users,
     dict,
