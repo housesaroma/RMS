@@ -35,6 +35,16 @@ export class AdminApi {
     return firstValueFrom(this.http.patch<AdminUser>(`${API}/admin/users/${id}`, patch));
   }
 
+  /** The server sends no mail: the temporary password is shown to the administrator once. */
+  resetPassword(id: string): Promise<{ temporaryPassword: string }> {
+    return firstValueFrom(
+      this.http.post<{ temporaryPassword: string }>(
+        `${API}/admin/users/${id}/reset-password`,
+        null,
+      ),
+    );
+  }
+
   readonly roles = () => httpResource<RolesState>(() => `${API}/admin/roles`);
 
   saveRoles(

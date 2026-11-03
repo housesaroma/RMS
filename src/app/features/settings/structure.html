@@ -98,6 +98,20 @@
             [value]="newProc()[d.name] ?? ''"
             (input)="setNewProc(d.name, $any($event.target).value)"
           />
+          <label class="select">
+            <span class="sr-only">Владелец нового процесса дирекции {{ d.name }}</span>
+            <select
+              class="input mini-input"
+              (change)="setNewOwner(d.name, $any($event.target).value)"
+            >
+              <option value="" [selected]="!newOwner()[d.name]">Владелец</option>
+              @for (u of owners(); track u.id) {
+                <option [value]="u.id" [selected]="u.id === newOwner()[d.name]">
+                  {{ u.fullName }}
+                </option>
+              }
+            </select>
+          </label>
           <button type="submit" class="btn btn--ghost btn--xs">Добавить</button>
         </form>
       </div>

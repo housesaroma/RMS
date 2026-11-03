@@ -340,7 +340,10 @@ const routes: [string, RegExp, Handler][] = [
   [
     'POST',
     /^admin\/users$/,
-    (req) => adminChange(createUser(state, req.body as NewUser, adminFromToken(req), now())),
+    (req) => ({
+      ...adminChange(createUser(state, req.body as NewUser, adminFromToken(req), now())),
+      temporaryPassword: Math.random().toString(16).slice(2, 14),
+    }),
   ],
   [
     'PATCH',
@@ -349,6 +352,15 @@ const routes: [string, RegExp, Handler][] = [
       adminChange(
         updateUser(state, id, req.body as Partial<AdminUser>, adminFromToken(req), now()),
       ),
+  ],
+  [
+    'POST',
+    /^admin\/users\/(U-\d+)\/reset-password$/,
+    (req, [id]) => (
+      adminFromToken(req),
+      USERS.some((u) => u.id === id) || fail(404, 'Пользователь не найден'),
+      { temporaryPassword: Math.random().toString(16).slice(2, 14) }
+    ),
   ],
   ['GET', /^admin\/roles$/, (req) => (adminFromToken(req), rolesState(state))],
   [

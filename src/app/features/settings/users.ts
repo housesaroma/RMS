@@ -95,9 +95,7 @@ export class Users {
         this.notice.set({
           text: user
             ? 'Изменения сохранены.'
-            : typeof saved === 'string'
-              ? `Пользователь создан. Временный пароль: ${saved}. Передайте его пользователю, он покажется один раз.`
-              : 'Пользователь создан, письмо с временным паролем отправлено.',
+            : `Пользователь создан. Временный пароль: ${saved}. Передайте его пользователю, он покажется один раз.`,
           error: false,
         });
         this.list.reload();
@@ -117,14 +115,15 @@ export class Users {
     }
   }
 
-  /** Mail is out of scope of the mock: the action only confirms what the backend will do. */
-  protected mail(u: AdminUserRow, what: 'reset' | 'resend'): void {
-    this.notice.set({
-      text:
-        what === 'reset'
-          ? `Пароль сброшен, письмо с временным паролем отправлено на ${u.email}.`
-          : `Письмо с данными доступа отправлено повторно на ${u.email}.`,
-      error: false,
-    });
+  protected async resetPassword(u: AdminUserRow): Promise<void> {
+    try {
+      const { temporaryPassword } = await this.api.resetPassword(u.id);
+      this.notice.set({
+        text: `Пароль ${u.fullName} сброшен. Временный пароль: ${temporaryPassword}. Передайте его пользователю, он покажется один раз.`,
+        error: false,
+      });
+    } catch (e) {
+      this.notice.set({ text: errorMessage(e), error: true });
+    }
   }
 }

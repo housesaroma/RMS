@@ -56,6 +56,8 @@ export class Structure {
   protected readonly notice = signal<{ text: string; error: boolean } | null>(null);
   protected readonly newDir = signal('');
   protected readonly newProc = signal<Record<string, string>>({});
+  /** Owner (user id) chosen for the new process, per directorate. */
+  protected readonly newOwner = signal<Record<string, string>>({});
   protected readonly newAsset = signal({ name: '', cost: '' });
 
   protected readonly dirs = computed(() => {
@@ -124,7 +126,7 @@ export class Structure {
           p.name === process ? { ...p, owner: short(u.fullName), ownerId: u.id } : p,
         ),
       },
-      `Владелец процесса «${process}»: ${short(u.fullName)}. Новые риски и меры пойдут к нему.`,
+      `Новые риски и меры процесса «${process}» пойдут к владельцу: ${short(u.fullName)}`,
     );
   }
 
@@ -158,17 +160,34 @@ export class Structure {
       this.notice.set({ text: 'Процесс с таким названием уже есть', error: true });
       return;
     }
+    // A process always has an owner: risks and measures of the process go to them.
+    const u = this.owners().find((x) => x.id === this.newOwner()[dir]);
+    if (!u) {
+      this.notice.set({ text: 'Выберите владельца нового процесса', error: true });
+      return;
+    }
     if (
       await this.save(
-        { processes: [...d.processes, { name, directorate: dir, owner: '—' }] },
-        `Процесс «${name}» добавлен. Назначьте владельца.`,
+        {
+          processes: [
+            ...d.processes,
+            { name, directorate: dir, owner: short(u.fullName), ownerId: u.id },
+          ],
+        },
+        `Процесс «${name}» добавлен, владелец: ${short(u.fullName)}`,
       )
-    )
+    ) {
       this.newProc.update((x) => ({ ...x, [dir]: '' }));
+      this.newOwner.update((x) => ({ ...x, [dir]: '' }));
+    }
   }
 
   protected setNewProc(dir: string, v: string): void {
     this.newProc.update((x) => ({ ...x, [dir]: v }));
+  }
+
+  protected setNewOwner(dir: string, userId: string): void {
+    this.newOwner.update((x) => ({ ...x, [dir]: userId }));
   }
 
   protected async setCost(name: string, raw: string): Promise<void> {

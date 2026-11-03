@@ -24,7 +24,7 @@ const TYPES: { key: ImportType; name: string; desc: string; example: string[] }[
   {
     key: 'users',
     name: 'Пользователи',
-    desc: 'Учётные записи с ролью; каждому уйдёт письмо с временным паролем.',
+    desc: 'Учётные записи с ролью; временный пароль выдаёт администратор через «Сбросить пароль».',
     example: [
       'Сидоров Пётр Иванович',
       'p.sidorov@artsofte.example',

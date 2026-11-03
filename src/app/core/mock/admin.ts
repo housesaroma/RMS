@@ -58,12 +58,7 @@ export function createUser(s: MockState, body: NewUser, by: User, now: string): 
     createdAt: now.slice(0, 10),
   };
   s.users.push(user);
-  log(
-    s,
-    by,
-    `Создан пользователь ${user.fullName} (${user.email}), письмо с временным паролем отправлено`,
-    now,
-  );
+  log(s, by, `Создан пользователь ${user.fullName} (${user.email}), выдан временный пароль`, now);
   return user;
 }
 

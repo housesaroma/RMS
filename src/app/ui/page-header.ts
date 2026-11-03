@@ -36,7 +36,15 @@ export class PageHeader {
 
   protected search(e: Event, q: string): void {
     e.preventDefault();
-    if (q.trim()) this.router.navigate(['/risks'], { queryParams: { q: q.trim() } });
+    q = q.trim();
+    if (!q) return;
+    // A measure ID (М-0015, typed with a Cyrillic or Latin letter) opens the measures list.
+    const measure = /^[МM]-?\d+$/i.test(q);
+    this.router.navigate([measure ? '/measures' : '/risks'], {
+      queryParams: {
+        q: measure ? q.replace(/^[MМ]-?(\d+)$/i, (_, n: string) => `М-${n.padStart(4, '0')}`) : q,
+      },
+    });
   }
 
   protected logout(): void {

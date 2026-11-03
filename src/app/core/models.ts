@@ -321,6 +321,8 @@ export interface RiskComment {
 
 export interface RiskDetails extends Risk {
   createdAtTime: string; // ISO datetime
+  /** First assessment ever (ISO datetime), when the history does not carry it. */
+  firstAssessedAt?: string | null;
   closedAt: string | null;
   closeReason: string | null;
   closedBy: string | null;

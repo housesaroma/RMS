@@ -194,17 +194,9 @@
         type="button"
         class="menu__item"
         cdkMenuItem
-        (cdkMenuItemTriggered)="mail(u, 'reset')"
+        (cdkMenuItemTriggered)="resetPassword(u)"
       >
         Сбросить пароль
-      </button>
-      <button
-        type="button"
-        class="menu__item"
-        cdkMenuItem
-        (cdkMenuItemTriggered)="mail(u, 'resend')"
-      >
-        Отправить письмо повторно
       </button>
       <button
         type="button"

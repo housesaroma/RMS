@@ -151,8 +151,11 @@
     <div class="note" role="note">
       <ui-icon name="archive" [size]="18" />
       <span class="grow">
-        Риск закрыт {{ date(r.closedAt, true) }}. Причина: {{ r.closeReason }}. Возврат из архива
-        отправит риск на переоценку. Закрыл {{ r.closedBy }}
+        Риск закрыт {{ date(r.closedAt, true) }}. Причина: {{ noDot(r.closeReason) }}. Возврат из
+        архива отправит риск на переоценку.
+        @if (r.closedBy) {
+          Закрыл {{ r.closedBy }}
+        }
       </span>
       <a class="btn btn--ghost btn--xs" routerLink="/archive">В архив</a>
     </div>

@@ -73,10 +73,18 @@ const fail = (status: number, message: string): never => {
 /** Backend errors come as {message} or ProblemDetails; the UI reads `error.message`. */
 function normalize(e: unknown, path: string): never {
   if (!(e instanceof HttpErrorResponse)) throw e;
-  const body = (e.error ?? {}) as { message?: string; detail?: string; title?: string };
+  const body = (e.error ?? {}) as {
+    message?: string;
+    detail?: string;
+    title?: string;
+    errors?: Record<string, string[]>;
+  };
   const message =
     body.message ||
     body.detail ||
+    // ASP.NET model validation: its English title says nothing to the user.
+    (body.errors &&
+      `Сервер не принял данные, проверьте поля: ${Object.keys(body.errors).join(', ')}`) ||
     (e.status === 401
       ? 'Сессия истекла, войдите снова'
       : e.status === 403
@@ -881,6 +889,18 @@ const routes: [string, RegExp, Handler][] = [
     },
   ],
   [
+    'POST',
+    /^admin\/users\/(U-\d+)\/reset-password$/,
+    async (c, [id]) => {
+      await admin(c);
+      return call<{ temporaryPassword: string }>(
+        c,
+        'POST',
+        `users/${backendId(id)}/reset-password`,
+      );
+    },
+  ],
+  [
     'GET',
     /^admin\/roles$/,
     async (c) => {
@@ -969,7 +989,17 @@ export const backendApi: HttpInterceptorFn = (req, next): Observable<HttpEvent<u
           throw e;
         }
       })(),
-    ).pipe(map((body) => new HttpResponse({ status: 200, body })));
+      // A copy, as over the network: handlers may return cached state, and the same
+      // reference would not refresh a resource.
+    ).pipe(
+      map(
+        (body) =>
+          new HttpResponse({
+            status: 200,
+            body: body instanceof Blob ? body : structuredClone(body),
+          }),
+      ),
+    );
   }
   return from(Promise.reject(new HttpErrorResponse({ status: 404, url: req.url })));
 };

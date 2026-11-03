@@ -82,7 +82,9 @@ export function dashboard(
   const firstAssessment = assessed.map((r) =>
     days(
       r.createdAtTime,
-      r.history.filter((e) => e.kind === 'assess').at(-1)?.at ?? r.assessment!.at,
+      r.history.filter((e) => e.kind === 'assess').at(-1)?.at ??
+        r.firstAssessedAt ??
+        r.assessment!.at,
     ),
   );
   const avg = firstAssessment.length

@@ -108,6 +108,8 @@ export interface RiskListItemDto {
   createdAt?: string | null;
   closedAt?: string | null;
   closeReason?: string | null;
+  assessedAt?: string | null;
+  firstAssessedAt?: string | null;
 }
 export interface LikelihoodLevelDto {
   likelihoodLevelId: number;
@@ -272,6 +274,7 @@ const REQUEST_STATUS: Record<string, RequestStatus> = {
   Approved: 'APPROVED',
   Rejected: 'REJECTED',
   Revoked: 'REVOKED',
+  Cancelled: 'REVOKED',
 };
 
 /** Process title of a risk–process link, read from the list row it belongs to. */
@@ -375,7 +378,7 @@ function toDetails(x: RiskListItemDto): RiskDetails {
           downtimeHours: null,
           by: '',
           byRole: '',
-          at: '',
+          at: x.assessedAt ?? '',
         }
       : null;
   const waits = status === 'REASSESSMENT';
@@ -388,10 +391,11 @@ function toDetails(x: RiskListItemDto): RiskDetails {
     category: x.category ?? '',
     process,
     directorate: x.directorates?.[0] ?? '',
-    owner: x.owners?.[0] ?? '',
+    owner: x.owners?.[0] ? shortName(x.owners[0]) : '',
     asset: x.asset || null,
     createdAt: x.createdAt?.slice(0, 10) ?? '',
     createdAtTime: x.createdAt ?? '',
+    firstAssessedAt: x.firstAssessedAt ?? null,
     closedAt: x.closedAt ?? null,
     closeReason: x.closeReason ?? null,
     closedBy: null,
@@ -405,7 +409,7 @@ function toDetails(x: RiskListItemDto): RiskDetails {
     secondary: rest.map((name, k) => ({
       name,
       directorate: x.directorates?.[k + 1] ?? '',
-      owner: x.owners?.[k + 1] ?? '',
+      owner: x.owners?.[k + 1] ? shortName(x.owners[k + 1]) : '',
     })),
     responseMode:
       (x.responseMode as RiskDetails['responseMode'] | undefined) ??
@@ -583,7 +587,15 @@ export function build(raw: Raw, token: string): Snapshot {
     staff: Object.fromEntries(
       directorates.map((d) => [
         d,
-        users.filter((u) => u.directorate === d && !u.blocked).map((u) => shortName(u.fullName)),
+        // Executors (12 §5.1): an active OWNER or EMPLOYEE of the directorate.
+        users
+          .filter(
+            (u) =>
+              u.directorate === d &&
+              !u.blocked &&
+              u.roles.some((r) => r === 'OWNER' || r === 'EMPLOYEE'),
+          )
+          .map((u) => shortName(u.fullName)),
       ]),
     ),
     disabled: [

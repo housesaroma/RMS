@@ -23,7 +23,7 @@ const ROLES: Role[] = ['EMPLOYEE', 'OWNER', 'DIRECTOR', 'CEO', 'RISK_SPECIALIST'
               {{ user.id }} · создан {{ date(user.createdAt) }} ·
               {{ user.blocked ? 'заблокирован' : 'активен' }}
             } @else {
-              На email придёт письмо с временным паролем, он действует 10 дней.
+              После создания покажем временный пароль: передайте его пользователю.
             }
           </p>
         </div>
@@ -96,7 +96,7 @@ const ROLES: Role[] = ['EMPLOYEE', 'OWNER', 'DIRECTOR', 'CEO', 'RISK_SPECIALIST'
         <div class="buttons">
           <button type="button" class="btn btn--ghost btn--sm" (click)="close()">Отмена</button>
           <button type="submit" class="btn btn--sm" [disabled]="!valid() || busy()">
-            {{ user ? 'Сохранить' : 'Создать и отправить письмо' }}
+            {{ user ? 'Сохранить' : 'Создать' }}
           </button>
         </div>
       </form>

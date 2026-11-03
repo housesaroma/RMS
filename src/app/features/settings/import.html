@@ -179,9 +179,9 @@
             {{ h.type === 'risks' ? 'Риски' : h.type === 'users' ? 'Пользователи' : 'Объекты' }}
           </td>
           <td class="small">
-            {{ h.created }} из {{ h.total }}
+            {{ h.created }} из {{ h.total }}{{ h.errors ? ',' : '' }}
             @if (h.errors) {
-              <span class="danger">, ошибок {{ h.errors }}</span>
+              <span class="danger">ошибок {{ h.errors }}</span>
             }
           </td>
           <td class="small">{{ h.by }}</td>

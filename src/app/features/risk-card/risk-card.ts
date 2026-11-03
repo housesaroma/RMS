@@ -105,6 +105,8 @@ export class RiskCard {
   // Helpers for the template.
   protected readonly rub = rub;
   protected readonly date = date;
+  /** The reason is user text that may already end with a period. */
+  protected readonly noDot = (s: string | null) => (s ?? '—').replace(/\.+$/, '');
   protected readonly duration = duration;
   protected readonly likelihoodNames = LIKELIHOOD_NAMES;
   protected readonly impactNames = IMPACT_NAMES;
@@ -333,7 +335,11 @@ export class RiskCard {
 
   // Actions.
   protected readonly busy = signal(false);
-  protected readonly notice = signal<{ text: string; error: boolean } | null>(null);
+  // Cleared when another risk opens: the component instance is reused between ids.
+  protected readonly notice = linkedSignal<string, { text: string; error: boolean } | null>({
+    source: this.id,
+    computation: () => null,
+  });
   protected readonly draft = signal('');
 
   private async run(action: () => Promise<RiskDetails>, done: string): Promise<boolean> {
